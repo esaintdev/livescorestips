@@ -1,0 +1,73 @@
+@extends('layouts.app')
+
+@section('title', $name . ' Football Predictions – ' . config('app.name'))
+@section('description', 'View upcoming football predictions for ' . $name . ' leagues. Expert tips, odds and analysis.')
+@section('robots', (isset($predictions) && $predictions->isEmpty()) ? 'noindex, follow' : 'index, follow')
+
+@section('page-header')
+    <h1 class="bm-page-title">
+        {{ $name }} Football Predictions
+    </h1>
+    <p class="bm-page-subheader">Upcoming tips from our database for {{ $name }} leagues</p>
+@endsection
+
+@section('content')
+    {{-- Filter Toolbar --}}
+    <x-filter-toolbar 
+        :date="$date" 
+        :dateRange="$dateRange" 
+        :isLive="false" 
+        :liveCount="0" 
+        route="country.show"
+        :routeParams="['name' => $name]"
+        :marketFilters="[]"
+    />
+
+    {{-- Match List --}}
+    <div class="bm-match-list">
+        @php $currentLeagueId = null; @endphp
+        @forelse($predictions as $prediction)
+            @if($prediction->league_id !== $currentLeagueId)
+                @php $currentLeagueId = $prediction->league_id; @endphp
+                <div class="bm-league-header">
+                    <i class="fa fa-star-o bm-star"></i>
+                    <img src="{{ $prediction->league_logo ? url($prediction->league_logo) : asset('images/logo.png') }}"
+                        alt="Logo" style="max-height: 16px;">
+                    <span>{{ $prediction->league_country ?? $name }} – {{ $prediction->league_name }}</span>
+                </div>
+            @endif
+
+            <x-betting-card
+                :matchUrl="route('fixture.show', [$prediction->slug ?? $prediction->fixture_id, $prediction->match_date->format('Y-m-d')])"
+                :time="\Carbon\Carbon::parse($prediction->match_time)->format('H:i')"
+                :isLive="false"
+                :homeTeam="$prediction->home_team"
+                :homeTeamLogo="$prediction->home_team_logo"
+                :awayTeam="$prediction->away_team"
+                :awayTeamLogo="$prediction->away_team_logo"
+                :homeScore="$prediction->home_score"
+                :awayScore="$prediction->away_score"
+                :probability="$prediction->probability"
+                :market="$prediction->category"
+                :tip="$prediction->tip"
+                :odds="$prediction->odds"
+                :status="$prediction->status"
+                :homeForm="$prediction->home_form"
+                :awayForm="$prediction->away_form"
+            />
+        @empty
+            <div class="p-4 text-center text-muted card mb-4"
+                style="background: #1e1e1e; border: none; border-radius: 12px;">
+                <i class="fa fa-calendar-o fa-3x mb-3 text-muted"></i>
+                <p>No upcoming predictions found for <strong>{{ $name }}</strong> on {{ $formattedDate }}.</p>
+                <p style="font-size: 13px; opacity: 0.5;">Try selecting another date above.</p>
+            </div>
+        @endforelse
+    </div>
+
+    <div class="text-center mt-5 mb-5">
+        <a href="{{ route('home') }}" class="btn btn-lg bm-market-btn active" style="padding: 12px 30px; border-radius: 25px;">
+            <i class="fa fa-home mr-2"></i> Back to Home
+        </a>
+    </div>
+@endsection

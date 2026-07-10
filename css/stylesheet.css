@@ -1,0 +1,550 @@
+body {
+    font-family: manrope, sans-serif
+}
+
+@media(max-width:978px) {
+    .team-form {
+        width: 18px !important;
+        height: 21px !important;
+        text-align: center;
+        color: #fff;
+        margin-right: 3px !important;
+        padding-top: 3px !important;
+        font-size: 10px
+    }
+
+    .nopadding {
+        padding: 0 !important
+    }
+
+    .team-form-label {
+        font-size: 10px
+    }
+
+    .tip-wrapper {
+        border: none !important
+    }
+
+    .tip-wrapper-inner {
+        padding: 4px !important
+    }
+
+    .upcoming-tip-wrapper-inner {
+        padding: 4px !important
+    }
+
+    .other-sports-wrapper {
+        padding: 2px 25px !important
+    }
+
+    .other-sports {
+        height: 45px !important
+    }
+
+    .header-text {
+        font-size: 30px !important;
+        text-align: center
+    }
+
+    .header-sub-text {
+        font-size: 12px;
+        text-align: center
+    }
+
+    .blog-img {
+        border-radius: 15px 0 0 15px !important;
+        width: 100% !important
+    }
+
+    .blog-title-wrap p {
+        font-size: 12px !important;
+        line-height: 18px !important
+    }
+
+    .blog-title-wrap {
+        max-height: 150px !important;
+        overflow: hidden !important;
+        display: flex;
+        justify-content: center;
+        align-items: center
+    }
+
+    .main-title {
+        font-size: 16px !important;
+        line-height: 108.4% !important;
+        color: #1a1c1a !important;
+        font-weight: 500 !important;
+        font-family: manrope
+    }
+
+    .last-footer {
+        text-align: center
+    }
+
+    .custom-card-header-tip {
+        font-size: 13px !important
+    }
+
+    .custom-card-body-tip {
+        font-size: 13px !important
+    }
+
+    .tip-card {
+        font-size: 12px !important
+    }
+
+    .green-btn {
+        font-size: 12px !important
+    }
+
+    .red-btn {
+        font-size: 12px !important
+    }
+}
+
+
+
+.navbar-nav li {
+    margin-right: 15px
+}
+
+.team-form-label {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center
+}
+
+.header-text {
+    font-style: normal;
+    font-weight: 600;
+    font-size: 54px;
+    line-height: 100.4%;
+    color: #fff
+}
+
+.header-text span {
+    color: #d6ae3e !important
+}
+
+.other-sports {
+    background: #fff;
+    border-radius: 9px;
+    padding: 5px 17px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    color: #000;
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 11px;
+    height: 40px;
+
+}
+
+@media(max-width:5000px) {
+    .other-sports {
+        margin-top: 23px
+    }
+}
+
+@media(max-width:850px) {
+    .other-sports {
+        margin-top: 2em;
+    }
+
+    .booking-code-wrap {
+        background: #eef9ee;
+        border: 1px solid #5cb85c;
+        box-sizing: border-box;
+        border-radius: 8px;
+        padding: 9px !important;
+        color: #5cb85c;
+        font-weight: 500
+    }
+
+    .tip-wrapper-footer {
+        border-top: 1px solid #e5e5e5;
+        padding: 0 !important
+    }
+}
+
+.other-sports img {
+    margin-right: 15px
+}
+
+.other-sports:hover {
+    background: #e09c38 !important;
+    color: #000 !important;
+    text-decoration: none
+}
+
+.notification-card {
+    background: #fff;
+    border-radius: 15px
+}
+
+.note-header {
+    background: #f0f0f0;
+    border-radius: 15px 15px 0 0;
+    height: 53px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 16px;
+    line-height: 108.4%;
+    color: #000
+}
+
+.note-slider-icon {
+    background: #fff;
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 50px
+}
+
+.note-body {
+    font-size: 13px;
+    line-height: 140.4%;
+    color: #000
+}
+
+.make-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center
+}
+
+.make-flex-left {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center
+}
+
+.make-flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center
+}
+
+.date-toggle {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    box-sizing: border-box;
+    border-radius: 50px;
+    font-size: 14px;
+    padding: 10px 15px;
+    margin-left: 10px;
+    cursor: pointer
+}
+
+.date-toggle.active {
+    color: #d35244;
+    border: 2px solid #d35244
+}
+
+.tip-wrapper {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    box-sizing: border-box;
+    border-radius: 10px
+}
+
+.tip-card:hover {}
+
+.tip-wrapper-inner {
+    padding: 20px;
+    display: none
+}
+
+.upcoming-tip-wrapper-inner {
+    padding: 20px
+}
+
+.tip-wrapper-inner.active {
+    display: block
+}
+
+.tip-wrapper-footer {
+    border-top: 1px solid #e5e5e5;
+    padding: 20px
+}
+
+.tip-card {
+    background: #f0f0f0;
+    border-radius: 15px;
+    font-size: 14px;
+    margin-bottom: 20px
+}
+
+.league-holder {
+    background: #c1392a;
+    border-radius: 17px;
+    padding: 5px 20px;
+    color: #fff
+}
+
+.team-form {
+    width: 32px;
+    height: 30px;
+    text-align: center;
+    color: #fff;
+    margin-right: 4px;
+    padding-top: 5px
+}
+
+.team-form.win {
+    background: #5cb85c
+}
+
+.team-form.draw {
+    background: #d6ae3e
+}
+
+.team-form.loose {
+    background: #c1392a
+}
+
+.team-label {
+    font-weight: 600
+}
+
+.booking-code-wrap {
+    background: #eef9ee;
+    border: 1px solid #5cb85c;
+    box-sizing: border-box;
+    border-radius: 8px;
+    padding: 15px;
+    color: #5cb85c;
+    font-weight: 500
+}
+
+.green-btn {
+    background: #5cb85c;
+    border-radius: 50px;
+    color: #fff;
+    height: 50px;
+    cursor: pointer
+}
+
+.red-btn {
+    background: #d35244;
+    border-radius: 50px;
+    color: #fff;
+    height: 50px;
+    cursor: pointer
+}
+
+.new-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    box-sizing: border-box;
+    border-radius: 15px;
+    margin-bottom: 20px
+}
+
+.blog-img {
+    border-radius: 15px 15px 0 0;
+    width: 100%
+}
+
+.blog-title-wrap {
+    padding: 20px
+}
+
+.blog-title-wrap p {
+    color: #1a1c1a;
+    font-size: 18px;
+    line-height: 24px
+}
+
+.blog-btn {
+    background: #fff;
+    border: 1px solid #000;
+    box-sizing: border-box;
+    border-radius: 50px;
+    padding: 7px 15px;
+    color: #1a1c1a;
+    cursor: pointer
+}
+
+.winning-card {
+    background: #f0f0f0;
+    border-radius: 15px;
+    font-size: 14px;
+    margin-bottom: 20px
+}
+
+.store-card {
+    background: #fff;
+    border-radius: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 145px;
+    position: relative;
+    margin-bottom: 25px
+}
+
+.store-tag {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: #5cb85c;
+    padding: 12px 12px 20px 15px;
+    border-radius: 0 15px 0 50px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    font-size: 13px
+}
+
+.footer-title {
+    color: #0e8ee3;
+    font-size: 14px;
+    margin-bottom: 15px
+}
+
+.footer-link {
+    color: #9fa3a7 !important;
+    font-size: 14px
+}
+
+.footer-col div {
+    margin-bottom: 10px
+}
+
+.social-icons a {
+    color: #fff !important;
+    margin-right: 15px
+}
+
+.footer-contact {
+    color: #9fa3a7;
+    font-size: 14px;
+    margin-top: 10px
+}
+
+.footer-contact p {
+    margin-bottom: 6px
+}
+
+.main-title {
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 108.4%
+}
+
+.custom-card {
+    border: 1px solid #e1e1e1;
+    box-sizing: border-box;
+    border-radius: 10px
+}
+
+.custom-card-header {
+    background: #f7f9f7;
+    border-radius: 10px 10px 0 0;
+    padding: 15px 10px;
+    text-align: center;
+    font-weight: 600;
+    display: flex;
+    justify-content: center;
+    align-items: center
+}
+
+.custom-card-header-tip {
+    background: #f7f9f7;
+    border-radius: 10px 10px 0 0;
+    padding: 15px;
+    font-weight: 600
+}
+
+.custom-card-body-tip {
+    padding: 15px
+}
+
+.custom-card-body-tip>.row {
+    margin-bottom: 25px
+}
+
+.match-preview-stat p {
+    margin-bottom: 4px
+}
+
+.tip-wrapper-inner a {
+    text-decoration: none !important;
+    color: #232523 !important
+}
+
+.upcoming-tip-wrapper-inner a {
+    text-decoration: none !important;
+    color: #232523 !important
+}
+
+.store-section a {
+    text-decoration: none !important;
+    color: #232523 !important
+}
+
+.display_flex_center {
+    display: flex;
+    justify-content: center;
+    align-items: center
+}
+
+.main-title {}
+
+.loose_h {
+    font-size: 14px !important;
+    color: #000
+}
+
+.win_h {
+    font-size: 14px !important;
+    color: #000;
+    font-weight: 900
+}
+
+.draw_h {
+    font-size: 14px !important;
+    color: #000
+}
+
+.team-form.empty {
+    background: #8080808a;
+}
+
+
+.other-sports>i {
+    font-size: 18px !important;
+}
+
+@media(max-width:800px) {
+    .other-sports {
+        margin-bottom: 14px!important;
+        margin-top: 0px!important;
+    }
+}
+.date-button-text-disabled{
+    pointer-events: none!important;
+}
+
+.date-button-text:hover,.date-button-text:active {
+    background: #e09c38 !important;
+    color: #000 !important;
+    text-decoration: none;
+    border: none;
+    border: 1px solid transparent!important;
+}
+@media(max-width:450px){
+.freepickdate{
+    font-size:14px
+} 
+.date-button-text-active {
+
+    font-size: 12px!important;
+} 
+
+}

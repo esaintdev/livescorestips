@@ -1,0 +1,337 @@
+/* ========================================
+   AUTH PAGES - Apple-inspired Login/Register
+   Shared between login.blade.php & register.blade.php
+   ======================================== */
+
+.bm-login-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    padding: 40px 20px;
+}
+
+.bm-login-card {
+    width: 100%;
+    max-width: 400px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 40px 32px;
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.bm-login-card.bm-login-card-wide {
+    max-width: 440px;
+}
+
+.bm-login-header {
+    text-align: center;
+    margin-bottom: 36px;
+}
+
+.bm-login-header.bm-login-header-compact {
+    margin-bottom: 28px;
+}
+
+.bm-login-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    background: rgba(255,107,0,0.1);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    color: #ff6b00;
+    font-size: 24px;
+}
+
+.bm-login-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 6px;
+    letter-spacing: -0.3px;
+}
+
+.bm-login-header p {
+    font-size: 14px;
+    color: #888;
+    margin: 0;
+}
+
+/* Form Groups */
+.bm-login-group {
+    margin-bottom: 20px;
+}
+
+.bm-login-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #999;
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.bm-login-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.bm-login-input-wrap .bm-input-icon {
+    position: absolute;
+    left: 14px;
+    color: #666;
+    font-size: 14px;
+    pointer-events: none;
+    transition: color 0.2s;
+}
+
+.bm-login-input-wrap:focus-within .bm-input-icon {
+    color: #ff6b00;
+}
+
+.bm-login-input {
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 14px 14px 14px 42px;
+    color: #eee;
+    font-size: 15px;
+    font-weight: 400;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+    height: 50px;
+    -webkit-appearance: none;
+}
+
+.bm-login-input::placeholder {
+    color: #666;
+}
+
+.bm-login-input:focus {
+    border-color: rgba(255,107,0,0.4);
+    background: rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 3px rgba(255,107,0,0.08);
+}
+
+.bm-login-input.is-invalid {
+    border-color: rgba(255,68,68,0.5);
+}
+
+.bm-login-error {
+    font-size: 12px;
+    color: #ff4444;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Submit Button */
+.bm-login-submit {
+    width: 100%;
+    background: linear-gradient(135deg, #ff6b00 0%, #e65e00 100%);
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: -0.2px;
+    height: 50px;
+}
+
+.bm-login-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(255,107,0,0.35);
+}
+
+.bm-login-submit:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(255,107,0,0.3);
+}
+
+.bm-login-submit i {
+    font-size: 16px;
+}
+
+/* Footer */
+.bm-login-footer {
+    text-align: center;
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.bm-login-footer p {
+    font-size: 13px;
+    color: #888;
+    margin: 0;
+}
+
+.bm-login-footer a {
+    color: #ff6b00;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.bm-login-footer a:hover {
+    color: #ff8533;
+}
+
+/* Last field before submit - extra spacing */
+.bm-login-group-last {
+    margin-bottom: 28px;
+}
+
+/* Remember Me (login only) */
+.bm-login-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+}
+
+.bm-login-remember {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.bm-login-remember input[type="checkbox"] {
+    display: none;
+}
+
+.bm-login-checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.bm-login-checkbox i {
+    font-size: 10px;
+    color: #fff;
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.2s;
+}
+
+.bm-login-remember input:checked + .bm-login-checkbox {
+    background: #ff6b00;
+    border-color: #ff6b00;
+}
+
+.bm-login-remember input:checked + .bm-login-checkbox i {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.bm-login-remember span {
+    font-size: 13px;
+    color: #999;
+}
+
+/* ========================================
+   LIGHT THEME OVERRIDES
+   ======================================== */
+.light-theme .bm-login-card {
+    background: #ffffff;
+    border-color: rgba(0,0,0,0.06);
+    box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+}
+
+.light-theme .bm-login-icon {
+    background: rgba(255,107,0,0.08);
+}
+
+.light-theme .bm-login-header h2 {
+    color: #1a1a1a;
+}
+
+.light-theme .bm-login-header p {
+    color: #888;
+}
+
+.light-theme .bm-login-label {
+    color: #888;
+}
+
+.light-theme .bm-login-input {
+    background: #f5f5f7;
+    border-color: rgba(0,0,0,0.08);
+    color: #1a1a1a;
+}
+
+.light-theme .bm-login-input::placeholder {
+    color: #aaa;
+}
+
+.light-theme .bm-login-input:focus {
+    border-color: rgba(255,107,0,0.4);
+    background: #f5f5f7;
+    box-shadow: 0 0 0 3px rgba(255,107,0,0.1);
+}
+
+.light-theme .bm-login-input-wrap .bm-input-icon {
+    color: #aaa;
+}
+
+.light-theme .bm-login-input-wrap:focus-within .bm-input-icon {
+    color: #ff6b00;
+}
+
+.light-theme .bm-login-checkbox {
+    border-color: #ccc;
+}
+
+.light-theme .bm-login-remember span {
+    color: #888;
+}
+
+.light-theme .bm-login-footer {
+    border-top-color: rgba(0,0,0,0.06);
+}
+
+.light-theme .bm-login-footer p {
+    color: #888;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 480px) {
+    .bm-login-card {
+        padding: 28px 20px;
+        border-radius: 16px;
+    }
+
+    .bm-login-header {
+        margin-bottom: 28px;
+    }
+
+    .bm-login-header h2 {
+        font-size: 20px;
+    }
+}

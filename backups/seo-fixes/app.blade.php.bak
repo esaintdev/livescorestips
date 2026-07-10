@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('title', config('app.name', 'LiveScores Tips'))</title>
+    <meta name="description" content="@yield('description', 'Betting Tips & Football Predictions')">
+    <meta name="keywords" content="@yield('keywords', 'football tips, predictions, betting')">
+
+    {{-- Open Graph --}}
+    <meta property="og:site_name" content="{{ config('app.name', 'LiveScores Tips') }}">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="@yield('title', config('app.name', 'LiveScores Tips'))">
+    <meta property="og:description" content="@yield('description', 'Betting Tips & Football Predictions')">
+    <meta property="og:image" content="{{ asset($ogImage ?? 'images/icon.png') }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <link rel="icon" type="image/png" href="{{ asset('images/icon.png') }}?v={{ time() }}">
+
+    <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/font-awesome.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/livescore-theme.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/light-theme.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/auth.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/apple.css') }}?v={{ time() }}">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sofia+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap"
+        rel="stylesheet">
+
+    <!-- Flatpickr -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+
+    <script type="application/ld+json">
+    {
+        "@@context": "https://schema.org",
+        "@@type": "WebSite",
+        "name": "{{ config('app.name', 'LiveScores Tips') }}",
+        "url": "{{ url('/') }}",
+        "description": "Free football predictions, betting tips, and match analysis."
+    }
+    </script>
+
+    @stack('styles')
+
+    @if(isset($headScripts))
+        @foreach($headScripts as $script)
+            {!! $script->code !!}
+        @endforeach
+    @endif
+
+    @stack('head')
+    <meta name="google-site-verification" content="Kks1fd1gwqXihNHAUeXZWthvugwbVcQyU1EFp1KyAKA" />
+</head>
+
+<body class="antialiased livescore-theme">
+    {{-- <x-preloader /> --}}
+
+    <div class="bm-layout-wrapper">
+        <!-- Top Navbar - Full Width -->
+        <x-layout.navbar />
+
+        <!-- Page Body -->
+        <div class="bm-page-body">
+            <div class="bm-content-body">
+                @hasSection('page-header')
+                    <div class="bm-page-header">
+                        @yield('page-header')
+                    </div>
+                @endif
+
+                @if(!request()->routeIs('blog.*', 'privacy', 'terms', 'login', 'register', 'account.*', 'vip.checkout', 'vip.crypto', 'vip.index', 'vip.games', 'recent-winnings.*', 'worldcup.*', 'fixture.show', 'about', 'contact', 'league.show', 'country.show', 'vip-results.*', 'seo.show', 'predictions.all', 'predictions.all.*', 'category.*'))
+                    <div class="bm-content-with-sidebar">
+                        <div class="bm-content-main">
+                            @yield('content')
+                        </div>
+                        {{-- Mobile overlay --}}
+                        <div id="bm-sidebar-overlay" class="bm-sidebar-overlay"></div>
+                        <aside class="bm-sidebar" id="bm-sidebar">
+                            <button id="bm-sidebar-close" class="bm-sidebar-close d-lg-none" aria-label="Close sidebar">&times;</button>
+                            <x-layout.sidebar />
+                        </aside>
+                    </div>
+                @else
+                    @yield('content')
+                @endif
+
+            </div>
+            <x-layout.footer />
+        </div>
+    </div>
+
+    <x-newsletter-popup />
+    <x-confirm-modal />
+
+    {{-- Scripts --}}
+    <script src="{{ asset('js/jquery.min.js') }}"></script>
+    <script src="{{ asset('js/popper.js') }}"></script>
+    <script src="{{ asset('js/bootstrap.min.js') }}"></script>
+
+
+    <!-- Flatpickr -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    {{-- Share Modal Script --}}
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const fab = document.getElementById('bm-share-fab');
+        const modal = document.getElementById('bm-share-modal');
+        const backdrop = modal?.querySelector('.bm-share-backdrop');
+        const closeBtn = document.getElementById('bm-share-close');
+        const options = modal?.querySelectorAll('.bm-share-option');
+        const url = encodeURIComponent(window.location.href);
+        const title = encodeURIComponent(document.title);
+        const text = encodeURIComponent(document.title + ' - ' + window.location.href);
+
+        function openShareModal() {
+            if (!modal) return;
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+
+            const nativeBtn = document.getElementById('bm-share-native-btn');
+            if (nativeBtn && navigator.share) {
+                nativeBtn.style.display = 'flex';
+            } else if (nativeBtn) {
+                nativeBtn.style.display = 'none';
+            }
+        }
+
+        function closeShareModal() {
+            if (!modal) return;
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        if (fab) fab.addEventListener('click', openShareModal);
+        if (closeBtn) closeBtn.addEventListener('click', closeShareModal);
+        if (backdrop) backdrop.addEventListener('click', closeShareModal);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeShareModal();
+        });
+
+        if (options) {
+            options.forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const shareType = btn.getAttribute('data-share');
+                    let shareUrl = '';
+
+                    switch (shareType) {
+                        case 'facebook':
+                            shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + url;
+                            break;
+                        case 'twitter':
+                            shareUrl = 'https://twitter.com/intent/tweet?text=' + title + '&url=' + url;
+                            break;
+                        case 'whatsapp':
+                            shareUrl = 'https://api.whatsapp.com/send?text=' + text;
+                            break;
+                        case 'telegram':
+                            shareUrl = 'https://t.me/share/url?url=' + url + '&text=' + title;
+                            break;
+                        case 'copy':
+                            copyToClipboard(window.location.href);
+                            return;
+                        case 'native':
+                            if (navigator.share) {
+                                navigator.share({
+                                    title: document.title,
+                                    url: window.location.href
+                                }).catch(function () {});
+                            }
+                            closeShareModal();
+                            return;
+                    }
+
+                    if (shareUrl) {
+                        window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=500');
+                    }
+                    closeShareModal();
+                });
+            });
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () {
+                    showCopyFeedback();
+                }).catch(function () {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showCopyFeedback();
+            } catch (e) {}
+            document.body.removeChild(textarea);
+        }
+
+        function showCopyFeedback() {
+            const copyBtn = modal?.querySelector('[data-share="copy"]');
+            if (!copyBtn) return;
+            const originalText = copyBtn.querySelector('.bm-share-label');
+            if (!originalText) return;
+            const saved = originalText.textContent;
+            originalText.textContent = 'Copied!';
+            setTimeout(function () {
+                originalText.textContent = saved;
+            }, 2000);
+        }
+    });
+    </script>
+
+    @stack('scripts')
+
+    @if(isset($bannerScripts) && $bannerScripts->count() > 0)
+        <style>
+            /* Prevent the body from being pushed down by ad-injected styles */
+            html,
+            body {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+
+            #bottom-right-banner {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 99999;
+                width: 330px;
+                border-radius: 12px;
+                display: none;
+            }
+
+            #bottom-right-banner:has(iframe, img, a, :not(script, style, button, .banner-content):not(:empty)) {
+                display: block !important;
+            }
+
+            #bottom-right-banner .clever-core-ads,
+            #bottom-right-banner [class*="clever"],
+            #bottom-right-banner [id*="clever"],
+            #bottom-right-banner iframe,
+            #bottom-right-banner div {
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                right: auto !important;
+                bottom: auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+            }
+
+            #bottom-right-banner img[alt*="close"],
+            #bottom-right-banner [class*="close"],
+            #bottom-right-banner [id*="close"],
+            #bottom-right-banner [style*="cursor: pointer"][style*="position"] {
+                position: absolute !important;
+                top: 5px !important;
+                right: 5px !important;
+                bottom: auto !important;
+                left: auto !important;
+                width: auto !important;
+                max-width: none !important;
+                height: auto !important;
+                z-index: 100000 !important;
+            }
+
+            [id*="pushdown"],
+            [class*="pushdown"],
+            [id*="topscroll"],
+            [class*="topscroll"],
+            [id*="leaderboard"],
+            [class*="leaderboard"],
+            [id*="topboard"],
+            [class*="topboard"] {
+                position: fixed !important;
+                bottom: 20px !important;
+                right: 20px !important;
+                top: auto !important;
+                left: auto !important;
+                width: 330px !important;
+                max-width: 330px !important;
+                height: 180px !important;
+                z-index: 99999 !important;
+            }
+
+            [id*="pushdown"] iframe,
+            [class*="pushdown"] iframe,
+            [id*="topscroll"] iframe,
+            [class*="topscroll"] iframe,
+            [id*="leaderboard"] iframe,
+            [class*="leaderboard"] iframe,
+            [id*="topboard"] iframe,
+            [class*="topboard"] iframe {
+                width: 100% !important;
+                height: 100% !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+            }
+        </style>
+
+        <button onclick="
+                    this.style.display='none';
+                    document.getElementById('bottom-right-banner').style.display='none';
+                    document.querySelectorAll('[id*=\'pushdown\'], [class*=\'pushdown\'], [id*=\'topscroll\'], [class*=\'topscroll\'], [id*=\'leaderboard\'], [class*=\'leaderboard\'], [id*=\'topboard\'], [class*=\'topboard\']').forEach(el => el.style.display = 'none');
+                "
+            style="position: fixed; bottom: 185px; right: 10px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; background: #222; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.5); z-index: 2147483647; line-height: 1;">&times;</button>
+
+        <div id="bottom-right-banner">
+            <div class="banner-content" style="overflow: hidden; display: flex; flex-direction: column; gap: 8px;">
+                @foreach($bannerScripts as $script)
+                    {!! $script->code !!}
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    <x-floating-share-button />
+    <x-share-modal />
+
+    <x-cookie-consent />
+
+    <x-layout.mobile-bottom-nav />
+
+    @if(isset($bodyScripts))
+        @foreach($bodyScripts as $script)
+            {!! $script->code !!}
+        @endforeach
+    @endif
+</body>
+
+</html>

@@ -1,0 +1,307 @@
+@extends('layouts.app')
+
+@section('title', $metadata['page_title'] ?? config('app.name', 'LiveScore tips') . ': LiveScores Tips prediction and football tips')
+@section('description', $metadata['page_description'] ?? 'LiveScore Tips is the best source of well-researched football statistics, analysis and free football prediction site. Start winning now.')
+@section('keywords', $metadata['page_keywords'] ?? 'best prediction site, Betting Tips, Football Predictions, Live Score, free football predictions, 100 sure prediction, accurate football predictions')
+
+@section('page-header')
+    <h2 class="bm-page-title">
+        {{ $metadata['page_subheader'] ?? '' }}
+    </h2>
+    @if(isset($metadata['page_description']) && !empty($metadata['page_description']))
+        <p class="bm-page-subheader">
+            {{ $metadata['page_description'] }}
+        </p>
+    @endif
+@endsection
+
+@section('content')
+    <!-- Filter Toolbar -->
+    <x-filter-toolbar 
+        :date="$date"
+        :dateRange="$dateRange"
+        :isLive="$isLive"
+        :liveCount="$liveCount"
+        route="home"
+        :marketFilters="$marketFilters"
+        :selectedMarket="request()->input('market')"
+    />
+
+    {{-- Mobile date nav -- always visible on small screens --}}
+    @php
+        $mobilePrevDate = \Carbon\Carbon::parse($date)->subDay()->format('Y-m-d');
+        $mobileNextDate = \Carbon\Carbon::parse($date)->addDay()->format('Y-m-d');
+        $mobileFormatted = \Carbon\Carbon::parse($date)->format('d-m-Y');
+    @endphp
+    <div class="bm-mobile-date-nav">
+        <a href="{{ route('home.date', ['date' => $mobilePrevDate]) }}" class="bm-date-arrow" title="Previous day">
+            <i class="fa fa-chevron-left"></i>
+        </a>
+        <button class="bm-date-current" title="Select date" onclick="document.getElementById('bm-date-picker-btn')?.click();">
+            <i class="fa fa-calendar-o"></i>
+            <span>{{ $mobileFormatted }}</span>
+        </button>
+        <a href="{{ route('home.date', ['date' => $mobileNextDate]) }}" class="bm-date-arrow" title="Next day">
+            <i class="fa fa-chevron-right"></i>
+        </a>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="bm-search-bar">
+        <div class="bm-search-input">
+            <i class="fa fa-search text-muted mr-2"></i>
+            <input type="text" id="bm-search-input" placeholder="Team, league or country">
+        </div>
+        {{-- Live button: shown only on mobile next to search --}}
+        <a href="{{ route('home', array_merge(request()->query(), ['live' => $isLive ? null : 1])) }}"
+           class="bm-search-live-btn {{ $isLive ? 'active' : '' }}">
+            <span class="bm-live-dot"></span>
+            Live
+            @if($liveCount > 0) <span class="bm-live-count">{{ $liveCount }}</span> @endif
+        </a>
+        <div class="bm-table-headers hideSM">
+            <span>Prob</span>
+            <span>Tips</span>
+            <span>Odd</span>
+        </div>
+    </div>
+
+    <!-- Match List -->
+    <div class="bm-match-list">
+        @php $currentLeagueId = null; @endphp
+        @forelse($predictions as $tip)
+            @if($tip->league_id !== $currentLeagueId)
+                    @if($currentLeagueId !== null)
+                        </div> <!-- Close previous group -->
+                    @endif
+                @php $currentLeagueId = $tip->league_id; @endphp
+                <div class="bm-match-group" data-league="{{ $tip->league_name }}">
+                    <div class="bm-league-header">
+                        <i class="fa fa-star-o bm-star"></i>
+                        <img src="{{ $tip->league_logo ? url($tip->league_logo) : asset('images/logo.png') }}" alt="Flag"
+                            style="max-height: 16px;">
+                        <span>{{ $tip->league_country ?? 'Europe' }} - {{ $tip->league_name }}</span>
+                    </div>
+            @endif
+
+            <x-betting-card :matchUrl="route('fixture.show', [$tip->slug ?? $tip->fixture_id, $tip->match_date->format('Y-m-d')])" :time="isset($tip->live_elapsed) ? $tip->live_elapsed : \Carbon\Carbon::parse($tip->match_time)->format('H:i')" :isLive="isset($tip->is_live) && $tip->is_live"
+                :homeTeam="$tip->home_team" :homeTeamLogo="$tip->home_team_logo" :awayTeam="$tip->away_team"
+                :awayTeamLogo="$tip->away_team_logo" :homeScore="$tip->home_score" :awayScore="$tip->away_score"
+                :probability="$tip->probability" :market="$tip->category" :tip="$tip->tip" :odds="$tip->odds"
+                :status="$tip->status" :homeForm="$tip->home_form" :awayForm="$tip->away_form" />
+
+            @if($loop->last)
+                </div> <!-- Close last group -->
+            @endif
+        @empty
+        <div class="p-4 text-center text-muted card mb-4" style="background: #1e1e1e; border: none; border-radius: 12px;">
+            <i class="fa fa-calendar-o fa-3x mb-3 text-muted"></i>
+            <p>No predictions available for this date. Check back tomorrow!</p>
+        </div>
+    @endforelse
+    </div>
+    {{-- Restored Section: Sports Articles --}}
+    @if(isset($latestArticles) && $latestArticles->count() > 0)
+        <section class="bm-card mt-5" style="background: transparent; border: none; padding: 0;">
+            <div class="bm-home-blog-header d-flex justify-content-between align-items-end mb-4 px-3 pt-3">
+                <div>
+                    <div class="text-warning font-weight-bold"
+                        style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px;">From the
+                        blog</div>
+                    <h2 class="bm-section-title mb-0"
+                        style="font-size: 28px; font-weight: 700; border-bottom: none; padding-bottom: 0; line-height: 1.2;">Sport news</h2>
+                </div>
+                <a href="{{ route('blog.index') }}" class="btn bm-btn-blog">View all posts &rarr;</a>
+            </div>
+            <div class="row">
+                @foreach($latestArticles as $article)
+                    <div class="col-lg-6 mb-4">
+                        <div class="bm-article-card-h">
+                            <a href="{{ route('blog.show', $article->slug) }}" class="bm-article-img-h"
+                                style="background-image: url('{{ $article->image ? asset($article->image) : asset('images/logo.png') }}')">
+                            </a>
+                            <div class="bm-article-body-h">
+                                <div class="bm-article-meta-h">
+                                    <span class="bm-badge-news">GUEST POST</span>
+                                    <span class="bm-meta-dot">&middot;</span>
+                                    <span
+                                        class="bm-article-date-h">{{ \Carbon\Carbon::parse($article->published_at)->diffForHumans() }}</span>
+                                </div>
+                                <h3 class="bm-article-title-h"><a
+                                        href="{{ route('blog.show', $article->slug) }}">{{ Str::limit($article->title, 55) }}</a>
+                                </h3>
+                                <p class="bm-article-excerpt-h">{{ Str::limit($article->excerpt, 80) }}</p>
+                                <a href="{{ route('blog.show', $article->slug) }}" class="bm-btn-readmore">READ MORE <i
+                                        class="fa fa-angle-right"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
+    {{-- Restored Section: Upcoming Fixtures --}}
+    @if(isset($upcomingFixtures) && $upcomingFixtures->count() > 0)
+        <section class="bm-card mt-4" style="background: transparent; border: none; padding: 0;">
+            <div class="d-flex align-items-center mb-3 px-3 pt-3">
+                <h2 class="bm-section-title mb-0" style="border-bottom: none; padding-bottom: 0;"><i class="fa fa-clock-o mr-2 text-info"></i> Upcoming Fixtures</h2>
+            </div>
+            <div class="bm-match-list">
+                @php $currentLeagueId = null; @endphp
+                @foreach($upcomingFixtures as $fixture)
+                    @if($fixture->league_id !== $currentLeagueId)
+                            @if($currentLeagueId !== null)
+                                </div>
+                            @endif
+                        @php $currentLeagueId = $fixture->league_id; @endphp
+                        <div class="bm-match-group" data-league="{{ $fixture->league_name }}">
+                            <div class="bm-league-header">
+                                <i class="fa fa-star-o bm-star"></i>
+                                <img src="{{ $fixture->league_logo ? url($fixture->league_logo) : asset('images/logo.png') }}" alt="Flag"
+                                    style="max-height: 16px;">
+                                <span>{{ $fixture->league_country ?? 'Europe' }} - {{ $fixture->league_name }}</span>
+                            </div>
+                    @endif
+
+                    <x-betting-card :matchUrl="route('fixture.show', [$fixture->slug ?? $fixture->fixture_id, $fixture->match_date->format('Y-m-d')])" :time="\Carbon\Carbon::parse($fixture->match_time)->format('H:i')"
+                        :homeTeam="$fixture->home_team" :homeTeamLogo="$fixture->home_team_logo" :awayTeam="$fixture->away_team"
+                        :awayTeamLogo="$fixture->away_team_logo" :homeScore="$fixture->home_score" :awayScore="$fixture->away_score"
+                        :probability="$fixture->probability" :market="$fixture->category" :tip="$fixture->tip"
+                        :odds="$fixture->odds" :status="$fixture->status" :homeForm="$fixture->home_form" :awayForm="$fixture->away_form" />
+
+                    @if($loop->last)
+                            </div>
+                    @endif
+                @endforeach
+            </div>
+            @if($upcomingFixtures->hasPages())
+                <div class="d-flex justify-content-center mt-4 mb-3 pb-3">
+                    {{ $upcomingFixtures->appends(request()->except('page'))->links() }}
+                </div>
+            @endif
+        </section>
+    @endif
+
+    {{-- Restored Section: Recent Winnings --}}
+    @if(isset($recentWinnings) && $recentWinnings->count() > 0)
+        <section class="bm-card mt-4">
+            <div class="d-flex align-items-center mb-4">
+                <h2 class="bm-section-title mb-0"><i class="fa fa-trophy mr-2 text-warning"></i> Recent Winnings</h2>
+                <a href="{{ route('recent-winnings.index') }}" class="ml-auto text-success"
+                    style="font-size: 13px; font-weight: 500;">View all <i class="fa fa-chevron-right ml-1"></i></a>
+            </div>
+            <div class="row">
+                @foreach($recentWinnings->take(3) as $winning)
+                    <div class="col-md-4 mb-3">
+                        <x-winning-card :winning="$winning" />
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
+    <x-info-article :metadata="$metadata" />
+@endsection
+
+@push('styles')
+<style>
+    .bm-mobile-date-nav {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 12px 0;
+        margin-bottom: 8px;
+    }
+    .bm-mobile-date-nav .bm-date-arrow {
+        color: rgba(255,255,255,0.6);
+        font-size: 16px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: background 0.2s, color 0.2s;
+        text-decoration: none;
+    }
+    .bm-mobile-date-nav .bm-date-arrow:hover {
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+    }
+    .bm-mobile-date-nav .bm-date-current {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 8px 16px;
+        color: rgba(255,255,255,0.8);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    .bm-mobile-date-nav .bm-date-current:hover {
+        border-color: #ff6b00;
+    }
+    .light-theme .bm-mobile-date-nav .bm-date-arrow {
+        color: rgba(0,0,0,0.5);
+    }
+    .light-theme .bm-mobile-date-nav .bm-date-arrow:hover {
+        background: rgba(0,0,0,0.06);
+        color: #222;
+    }
+    .light-theme .bm-mobile-date-nav .bm-date-current {
+        border-color: rgba(0,0,0,0.12);
+        color: rgba(0,0,0,0.7);
+        background: rgba(0,0,0,0.03);
+    }
+    .light-theme .bm-mobile-date-nav .bm-date-current:hover {
+        border-color: #ff6b00;
+    }
+    @media (max-width: 768px) {
+        .bm-mobile-date-nav {
+            display: flex;
+        }
+    }
+</style>
+@endpush
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchInput = document.getElementById('bm-search-input');
+            const matchContainer = document.querySelector('.bm-match-list');
+
+            if (!matchContainer) return;
+
+            // Search Logic
+            if (searchInput) {
+                searchInput.addEventListener('input', function (e) {
+                    const term = e.target.value.toLowerCase();
+                    const cards = matchContainer.querySelectorAll('.bm-match-row-premium');
+
+                    cards.forEach(card => {
+                        const teamsElem = card.querySelectorAll('.bm-team-name-text');
+                        const teamTexts = Array.from(teamsElem).map(el => el.textContent.toLowerCase()).join(' ');
+                        const leagueData = card.closest('.bm-match-group')?.getAttribute('data-league')?.toLowerCase() || '';
+
+                        if (teamTexts.includes(term) || leagueData.includes(term)) {
+                            card.style.display = '';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+
+                    document.querySelectorAll('.bm-match-group').forEach(group => {
+                        const visibleCards = Array.from(group.querySelectorAll('.bm-match-row-premium')).filter(c => c.style.display !== 'none');
+                        const header = group.querySelector('.bm-league-header');
+                        if (header) {
+                            header.style.display = visibleCards.length > 0 ? '' : 'none';
+                        }
+                    });
+                });
+            }
+        });
+    </script>
+@endpush
