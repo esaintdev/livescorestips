@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /account
+Disallow: /login
+Disallow: /register
+Disallow: /vip/games
+Disallow: /vip/payment/
+Disallow: /cookie/payment/
+
+Sitemap: https://livescorestips.com/sitemap.xml
