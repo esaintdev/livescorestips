@@ -11,7 +11,19 @@ class SitemapController extends Controller
 {
     public function index()
     {
-        return response()->view('sitemaps.index')
+        $lastModified = [
+            'main' => collect([
+                Prediction::max('updated_at'),
+                ArticleCategory::max('updated_at'),
+            ])->filter()->max(),
+            'blog' => Article::whereNotNull('published_at')
+                ->where('published_at', '<=', now())
+                ->max('updated_at'),
+            'seo' => SeoPage::where('is_active', true)->max('updated_at'),
+            'predictions' => Prediction::max('updated_at'),
+        ];
+
+        return response()->view('sitemaps.index', compact('lastModified'))
             ->header('Content-Type', 'text/xml');
     }
 
@@ -20,38 +32,45 @@ class SitemapController extends Controller
         $urls = [];
 
         $staticPages = [
-            ['route' => 'home', 'priority' => '1.0'],
-            ['route' => 'blog.index', 'priority' => '0.9'],
-            ['route' => 'vip.index', 'priority' => '0.9'],
-            ['route' => 'vip-results.index', 'priority' => '0.8'],
-            ['route' => 'recent-winnings.index', 'priority' => '0.8'],
-            ['route' => 'predictions.all', 'priority' => '0.9'],
-            ['route' => 'about', 'priority' => '0.7'],
-            ['route' => 'contact', 'priority' => '0.7'],
-            ['route' => 'privacy', 'priority' => '0.6'],
-            ['route' => 'terms', 'priority' => '0.6'],
-            ['route' => 'worldcup.index', 'priority' => '0.8'],
-            ['route' => 'banker.show', 'priority' => '0.9'],
+            ['route' => 'home', 'priority' => '1.0', 'changefreq' => 'daily'],
+            ['route' => 'blog.index', 'priority' => '0.9', 'changefreq' => 'daily'],
+            ['route' => 'vip.index', 'priority' => '0.9', 'changefreq' => 'weekly'],
+            ['route' => 'vip-results.index', 'priority' => '0.8', 'changefreq' => 'daily'],
+            ['route' => 'recent-winnings.index', 'priority' => '0.8', 'changefreq' => 'daily'],
+            ['route' => 'predictions.all', 'priority' => '0.9', 'changefreq' => 'daily'],
+            ['route' => 'about', 'priority' => '0.7', 'changefreq' => 'monthly'],
+            ['route' => 'contact', 'priority' => '0.7', 'changefreq' => 'monthly'],
+            ['route' => 'privacy', 'priority' => '0.6', 'changefreq' => 'yearly'],
+            ['route' => 'terms', 'priority' => '0.6', 'changefreq' => 'yearly'],
+            ['route' => 'worldcup.index', 'priority' => '0.8', 'changefreq' => 'daily'],
+            ['route' => 'banker.show', 'priority' => '0.9', 'changefreq' => 'daily'],
         ];
 
         foreach ($staticPages as $page) {
             $urls[] = [
                 'loc' => route($page['route']),
-                'lastmod' => now()->toAtomString(),
-                'changefreq' => 'daily',
+                'changefreq' => $page['changefreq'],
                 'priority' => $page['priority'],
             ];
         }
 
-        $categorySlugs = [
-            'double-chance', 'over-1-5-goals', 'over-2-5-goals',
-            'btts-gg', 'draws', 'home-wins', 'away-wins', 'correct-score',
+        $categoryMap = [
+            'double-chance' => 'Double Chance',
+            'over-1-5-goals' => 'Over 1.5 Goals',
+            'over-2-5-goals' => 'Over 2.5 Goals',
+            'btts-gg' => 'Both Teams To Score',
+            'draws' => 'Draw',
+            'home-wins' => 'Home Win',
+            'away-wins' => 'Away Win',
+            'correct-score' => 'Correct Score',
         ];
 
-        foreach ($categorySlugs as $slug) {
+        foreach ($categoryMap as $slug => $category) {
+            $lastmod = Prediction::where('category', $category)->max('updated_at');
+
             $urls[] = [
                 'loc' => route('category.show', $slug),
-                'lastmod' => now()->toAtomString(),
+                'lastmod' => $lastmod ? \Carbon\Carbon::parse($lastmod)->toAtomString() : null,
                 'changefreq' => 'daily',
                 'priority' => '0.8',
             ];
@@ -61,7 +80,7 @@ class SitemapController extends Controller
         foreach ($blogCategories as $category) {
             $urls[] = [
                 'loc' => route('blog.show', $category->slug),
-                'lastmod' => now()->toAtomString(),
+                'lastmod' => optional($category->updated_at)->toAtomString(),
                 'changefreq' => 'weekly',
                 'priority' => '0.6',
             ];
@@ -115,16 +134,24 @@ class SitemapController extends Controller
     {
         $urls = [];
 
-        $predictions = Prediction::orderBy('match_date', 'desc')
+        $predictions = Prediction::whereNotNull('match_date')
+            ->where(function ($query) {
+                $query->whereNotNull('slug')
+                    ->orWhereNotNull('fixture_id');
+            })
+            ->orderBy('match_date', 'desc')
             ->orderBy('updated_at', 'desc')
             ->get()
-            ->unique('fixture_id');
+            ->unique(function ($prediction) {
+                return $prediction->fixture_id ?: 'manual_' . $prediction->id;
+            });
 
         foreach ($predictions as $prediction) {
-            $date = $prediction->match_date ? $prediction->match_date->format('Y-m-d') : 'unknown';
+            $date = $prediction->match_date->format('Y-m-d');
             $slug = $prediction->slug ?: $prediction->fixture_id;
+
             $urls[] = [
-                'loc' => url("/match/$slug/$date"),
+                'loc' => route('fixture.show', ['slug' => $slug, 'date' => $date]),
                 'lastmod' => $prediction->updated_at->toAtomString(),
                 'changefreq' => 'weekly',
                 'priority' => '0.5',
