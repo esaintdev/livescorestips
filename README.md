@@ -1,4 +1,4 @@
-# LiveScore Tips
+# LiveScores Tips
 
 Football predictions and betting tips website — livescorestips.com.
 

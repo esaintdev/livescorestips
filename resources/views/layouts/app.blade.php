@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', config('app.name', 'LiveScores Tips'))</title>
-    <meta name="description" content="@yield('description', 'Betting Tips & Football Predictions')">
+    <meta name="description" content="{{ meta_description($__env->yieldContent('description', 'Betting Tips & Football Predictions')) }}">
     <meta name="keywords" content="@yield('keywords', 'football tips, predictions, betting')">
 
     {{-- Open Graph --}}
@@ -19,7 +19,7 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/icon.png') }}">
-    <link rel="icon" type="image/png" href="{{ asset('images/icon.png') }}?v={{ time() }}">
+    <link rel="icon" type="image/png" href="{{ asset_v('images/icon.png') }}">
     <link rel="manifest" href="{{ asset('webmanifest.json') }}">
 
     <link rel="canonical" href="{{ $canonical ?? url()->current() }}">
@@ -36,10 +36,10 @@
 
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/font-awesome.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/livescore-theme.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/light-theme.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/auth.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/apple.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset_v('css/livescore-theme.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('css/light-theme.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('css/auth.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('css/apple.css') }}">
     <link
         href="https://fonts.googleapis.com/css2?family=Sofia+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap"
         rel="stylesheet">
@@ -52,8 +52,8 @@
     {!! json_encode([
     '@context' => 'https://schema.org',
     '@type' => 'WebSite',
-    'name' => 'LiveScores Tips',
-    'alternateName' => ['LiveScoresTips', 'Live Score Tips', 'Live Scores Tips'],
+    'name' => config('app.name', 'LiveScores Tips'),
+    'alternateName' => ['LiveScoresTips', 'Live Scores Tips'],
     'url' => url('/'),
     'description' => 'Free football predictions, betting tips, live scores, fixtures, results and match analysis.',
     'potentialAction' => [
@@ -71,7 +71,7 @@
     {!! json_encode([
     '@context' => 'https://schema.org',
     '@type' => 'Organization',
-    'name' => 'LiveScores Tips',
+    'name' => config('app.name', 'LiveScores Tips'),
     'url' => url('/'),
     'logo' => asset('images/logo.png'),
     'description' => 'Free football predictions, betting tips, live scores, fixtures, results and match analysis.'

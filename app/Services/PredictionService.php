@@ -3,16 +3,18 @@
 namespace App\Services;
 
 use App\Models\Prediction;
-use App\Models\Setting;
 use Illuminate\Support\Facades\Log;
 
 class PredictionService
 {
     protected $apiService;
 
-    public function __construct(ApiFootballService $apiService)
+    protected $resultService;
+
+    public function __construct(ApiFootballService $apiService, PredictionResultService $resultService)
     {
         $this->apiService = $apiService;
+        $this->resultService = $resultService;
     }
 
     /**
@@ -20,15 +22,15 @@ class PredictionService
      * Processes ALL leagues equally — no tier-based gating.
      * Every eligible fixture with available odds gets a chance.
      *
-     * @param string $date Y-m-d
-     * @param int $limit Number of predictions to generate
-     * @param array $leagueIds Optional array of league IDs to filter by
+     * @param  string  $date  Y-m-d
+     * @param  int  $limit  Number of predictions to generate
+     * @param  array  $leagueIds  Optional array of league IDs to filter by
      * @return array The generated predictions
      */
     public function generateAutoPredictions($date, $limit = 5, $leagueIds = [])
     {
-        $leagueSuffix = !empty($leagueIds) ? ' (league_ids: ' . implode(',', $leagueIds) . ')' : '';
-        Log::info("Starting auto-prediction generation for $date with limit $limit" . $leagueSuffix);
+        $leagueSuffix = ! empty($leagueIds) ? ' (league_ids: '.implode(',', $leagueIds).')' : '';
+        Log::info("Starting auto-prediction generation for $date with limit $limit".$leagueSuffix);
 
         // 1. Fetch Bulk Odds for the whole day (1xBet)
         Log::info("Fetching bulk odds for $date (1xBet)...");
@@ -42,11 +44,11 @@ class PredictionService
                 $oddsMap[$fId] = $entry;
             }
         }
-        Log::info("Mapped " . count($oddsMap) . " fixtures with available 1xBet odds.");
+        Log::info('Mapped '.count($oddsMap).' fixtures with available 1xBet odds.');
 
         // 2. Fetch ALL eligible fixtures for the date (optionally filtered by league)
         $allFixturesRaw = $this->fetchEligibleFixtures($date, $leagueIds);
-        Log::info("Found " . count($allFixturesRaw) . " eligible fixtures for $date" . $leagueSuffix);
+        Log::info('Found '.count($allFixturesRaw)." eligible fixtures for $date".$leagueSuffix);
 
         // Shuffle all fixtures to give every league an equal chance
         shuffle($allFixturesRaw);
@@ -63,8 +65,9 @@ class PredictionService
 
         // 3. Process ALL fixtures equally — no tier gating
         foreach ($allFixturesRaw as $fixture) {
-            if (count($generatedPredictions) >= $limit)
+            if (count($generatedPredictions) >= $limit) {
                 break;
+            }
 
             $useDeepAnalysis = $deepAnalysisCount < $maxDeepAnalysis;
             $canCallIndividualOdds = $individualOddsCalls < $maxIndividualOddsCalls;
@@ -84,13 +87,13 @@ class PredictionService
             }
         }
 
-        Log::info("Prediction generation summary: Generated=" . count($generatedPredictions) . ", Total Fixtures Processed=" . count($allFixturesRaw) . ", Deep Analyses=" . $deepAnalysisCount . ", Individual Odds Calls=" . $individualOddsCalls);
+        Log::info('Prediction generation summary: Generated='.count($generatedPredictions).', Total Fixtures Processed='.count($allFixturesRaw).', Deep Analyses='.$deepAnalysisCount.', Individual Odds Calls='.$individualOddsCalls);
 
         $totalChecked = count($generatedPredictions) + $skippedReasons['duplicate'] + $skippedReasons['no_analysis'] + $skippedReasons['no_odds'];
 
         return [
             'predictions' => $generatedPredictions,
-            'summary' => array_merge($skippedReasons, ['total_checked' => $totalChecked])
+            'summary' => array_merge($skippedReasons, ['total_checked' => $totalChecked]),
         ];
     }
 
@@ -108,45 +111,48 @@ class PredictionService
 
         // 1. DUPLICATE CHECK — skip only if there's already a REAL prediction (with a tip)
         $existing = Prediction::where('fixture_id', $fixtureId)->first();
-        if ($existing && $existing->tip !== null && $existing->tip !== '' && $existing->tip !== 'Awaiting odds') {
+        if ($existing && $existing->hasRealTip()) {
             $skippedReasons['duplicate']++;
+
             return;
         }
-        
-        // If there's a placeholder record, delete it so we can replace with a real prediction
-        if ($existing) {
-            $existing->delete();
-        }
+
+        // A placeholder (or missing) record may be upgraded in place. It is NOT
+        // deleted here: a failed regeneration must never destroy a persisted
+        // match page. Replacement data is validated first and the record is
+        // only written once generation has succeeded (see createPredictionRecord).
 
         // 2. STATUS CHECK
         $status = $fixture['fixture']['status']['short'];
-        if (!in_array($status, ['NS', 'TBD'])) {
+        if (! in_array($status, ['NS', 'TBD'])) {
             $skippedReasons['no_analysis']++;
+
             return;
         }
 
         // 3. ODDS LOOKUP — bulk first, individual fallback for EVERY fixture (capped at maxIndividualOddsCalls)
         $bulkEntry = $oddsMap[$fixtureId] ?? null;
-        if (!$bulkEntry && $canCallIndividualOdds) {
+        if (! $bulkEntry && $canCallIndividualOdds) {
             $individualOddsCalls++;
             $singleOdds = $this->apiService->fetchOddsByFixture($fixtureId);
-            if (!empty($singleOdds)) {
+            if (! empty($singleOdds)) {
                 $bulkEntry = $singleOdds[0];
             }
         }
 
-        if (!$bulkEntry) {
+        if (! $bulkEntry) {
             $skippedReasons['no_odds']++;
+
             return;
         }
 
         // 4. ANALYZE: Deep analysis for some, quick odds analysis for the rest
         if ($useDeepAnalysis) {
             $potentialPredictions = $this->analyzeMatch($fixture);
-            $logSuffix = " (Deep Analysis)";
+            $logSuffix = ' (Deep Analysis)';
         } else {
             $potentialPredictions = $this->quickAnalyzeMatch($bulkEntry);
-            $logSuffix = " (Quick Odds Analysis)";
+            $logSuffix = ' (Quick Odds Analysis)';
         }
 
         // FALLBACK: If analysis returned nothing, try safe double-chance / goals market
@@ -162,14 +168,14 @@ class PredictionService
                         'category' => ($mType === 'goals') ? ($fTip === 'Over 1.5' ? 'Over 1.5 Goals' : 'Over 0.5 Goals') : 'Double Chance',
                         'market_type' => $mType,
                         'home_form' => [],
-                        'away_form' => []
+                        'away_form' => [],
                     ];
                     break;
                 }
             }
         }
 
-        if (!empty($potentialPredictions)) {
+        if (! empty($potentialPredictions)) {
             // Ensure Diversity: Pick a category that hasn't been picked yet today if possible
             $allPossibleCategories = [
                 'Home Win',
@@ -179,7 +185,7 @@ class PredictionService
                 'Double Chance',
                 'Over 1.5 Goals',
                 'Over 2.5 Goals',
-                'Under 2.5 Goals'
+                'Under 2.5 Goals',
             ];
 
             $missingCategories = array_filter($allPossibleCategories, function ($cat) use ($categoryCounts) {
@@ -187,7 +193,7 @@ class PredictionService
             });
 
             $diversityCandidate = null;
-            if (!empty($missingCategories)) {
+            if (! empty($missingCategories)) {
                 $shuffled = $potentialPredictions;
                 shuffle($shuffled);
                 foreach ($shuffled as $pp) {
@@ -205,6 +211,7 @@ class PredictionService
                 usort($potentialPredictions, function ($a, $b) use ($categoryCounts) {
                     $countA = $categoryCounts[$a['category']] ?? 0;
                     $countB = $categoryCounts[$b['category']] ?? 0;
+
                     return $countA <=> $countB;
                 });
 
@@ -224,14 +231,15 @@ class PredictionService
                     $predictionData,
                     $odds,
                     $predictionData['home_form'] ?? [],
-                    $predictionData['away_form'] ?? []
+                    $predictionData['away_form'] ?? [],
+                    $existing
                 );
                 $generatedPredictions[] = $prediction;
 
                 $cat = $predictionData['category'];
                 $categoryCounts[$cat] = ($categoryCounts[$cat] ?? 0) + 1;
 
-                Log::info("Successfully created prediction for $matchName ($leagueName)" . $logSuffix);
+                Log::info("Successfully created prediction for $matchName ($leagueName)".$logSuffix);
             } else {
                 Log::warning("Skipped $matchName: Specific market/tip odds not found in 1xBet data.");
                 $skippedReasons['no_odds']++;
@@ -249,8 +257,9 @@ class PredictionService
     protected function quickAnalyzeMatch($bulkEntry)
     {
         $potentialPredictions = [];
-        if (empty($bulkEntry) || empty($bulkEntry['bookmakers']))
+        if (empty($bulkEntry) || empty($bulkEntry['bookmakers'])) {
             return [];
+        }
 
         $bookmaker = $bulkEntry['bookmakers'][0];
         foreach ($bookmaker['bets'] as $bet) {
@@ -270,26 +279,29 @@ class PredictionService
             if ($marketType) {
                 // Find outcome with lowest odds (highest probability)
                 $values = $bet['values'];
-                usort($values, fn($a, $b) => $a['odd'] <=> $b['odd']);
+                usort($values, fn ($a, $b) => $a['odd'] <=> $b['odd']);
                 $best = $values[0];
 
                 // RELAXED QUALITY FILTER: 1.10 - 5.00 covers all leagues.
                 // Smaller leagues may have higher odds, and that's fine —
                 // the tip is still valid even if the return is lower confidence.
-                if ($best['odd'] < 1.10 || $best['odd'] > 5.00)
+                if ($best['odd'] < 1.10 || $best['odd'] > 5.00) {
                     continue;
+                }
 
                 $tip = $this->normalizeTip($best['value'], $marketType);
                 $category = null;
 
                 if ($marketType === '1x2') {
-                    if ($tip === 'X')
-                        continue; // Skip Draws
+                    if ($tip === 'X') {
+                        continue;
+                    } // Skip Draws
                     $category = ($tip === '1') ? 'Home Win' : 'Away Win';
                 } elseif ($marketType === 'goals') {
                     $val = floatval($this->extractGoalValue($best['value']));
-                    if ($val == 0)
+                    if ($val == 0) {
                         continue;
+                    }
                     $type = (stripos($best['value'], 'Over') !== false) ? 'Over' : 'Under';
                     $category = "$type $val Goals";
                 } elseif ($marketType === 'double_chance') {
@@ -304,11 +316,12 @@ class PredictionService
                         'category' => $category,
                         'market_type' => $marketType,
                         'home_form' => [],
-                        'away_form' => []
+                        'away_form' => [],
                     ];
                 }
             }
         }
+
         return $potentialPredictions;
     }
 
@@ -317,6 +330,7 @@ class PredictionService
         if (preg_match('/(\d+(\.\d+)?)/', $string, $matches)) {
             return $matches[1];
         }
+
         return 0;
     }
 
@@ -329,7 +343,7 @@ class PredictionService
             $statusShort = $fixture['fixture']['status']['short'];
 
             // 1. Must be Not Started or TBD
-            if (!in_array($statusShort, ['NS', 'TBD'])) {
+            if (! in_array($statusShort, ['NS', 'TBD'])) {
                 return false;
             }
 
@@ -349,26 +363,60 @@ class PredictionService
         $awayTeam = $fixture['teams']['away']['name'] ?? '';
 
         // Check league name patterns
-        if (preg_match('/\bU(19|20|21|22|23)\b/i', $leagueName)) return true;
-        if (preg_match('/\bReserve\b/i', $leagueName)) return true;
-        if (preg_match('/\bWomen\b/i', $leagueName)) return true;
-        if (preg_match('/\bWomens\b/i', $leagueName)) return true;
-        if (preg_match('/\bFeminin\b/i', $leagueName)) return true;
-        if (preg_match('/\bFemminile\b/i', $leagueName)) return true;
-        if (preg_match('/\bFemenino\b/i', $leagueName)) return true;
-        if (preg_match('/\bLadies\b/i', $leagueName)) return true;
-        if (preg_match('/\bJunior\b/i', $leagueName)) return true;
-        if (preg_match('/\bYouth\b/i', $leagueName)) return true;
+        if (preg_match('/\bU(19|20|21|22|23)\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bReserve\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bWomen\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bWomens\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bFeminin\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bFemminile\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bFemenino\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bLadies\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bJunior\b/i', $leagueName)) {
+            return true;
+        }
+        if (preg_match('/\bYouth\b/i', $leagueName)) {
+            return true;
+        }
 
         // Check team names
         foreach ([$homeTeam, $awayTeam] as $team) {
-            if (preg_match('/\bU(19|20|21|22|23)\b/i', $team)) return true;
-            if (preg_match('/\bWomen\b/i', $team)) return true;
-            if (preg_match('/\bWFC\b/i', $team)) return true;
-            if (preg_match('/\bLadies\b/i', $team)) return true;
-            if (preg_match('/\bRes(\.|erve)\b/i', $team)) return true;
-            if (preg_match('/\sII$/', $team)) return true;
-            if (preg_match('/[- ]B$/', $team)) return true;
+            if (preg_match('/\bU(19|20|21|22|23)\b/i', $team)) {
+                return true;
+            }
+            if (preg_match('/\bWomen\b/i', $team)) {
+                return true;
+            }
+            if (preg_match('/\bWFC\b/i', $team)) {
+                return true;
+            }
+            if (preg_match('/\bLadies\b/i', $team)) {
+                return true;
+            }
+            if (preg_match('/\bRes(\.|erve)\b/i', $team)) {
+                return true;
+            }
+            if (preg_match('/\sII$/', $team)) {
+                return true;
+            }
+            if (preg_match('/[- ]B$/', $team)) {
+                return true;
+            }
         }
 
         return false;
@@ -419,9 +467,9 @@ class PredictionService
 
         // Calculate a simple strength metric to decide WHICH side of the bet to pick
         // e.g. for Home Wins, we pick '1' if Home is better, else we might skip or still pick it if forced?
-        // "do what i want" -> "predict all category". 
-        // So for "Home Wins" category, if Home is NOT favored, we probably shouldn't predict it. 
-        // But we need to output SOMETHING for that category if possible? 
+        // "do what i want" -> "predict all category".
+        // So for "Home Wins" category, if Home is NOT favored, we probably shouldn't predict it.
+        // But we need to output SOMETHING for that category if possible?
         // Actually, "Home Wins" implies the tip is "1". If Home is likely to lose, suggesting "1" is bad.
         // But "Double Chance" can cover "X2" (Away/Draw).
         // let's try to generate a valid tip for EVERY category if plausible.
@@ -435,22 +483,26 @@ class PredictionService
         $h2hCount = 0;
         foreach ($h2h as $match) {
             $h2hCount++;
-            $hg = (int)($match['goals']['home'] ?? 0);
-            $ag = (int)($match['goals']['away'] ?? 0);
+            $hg = (int) ($match['goals']['home'] ?? 0);
+            $ag = (int) ($match['goals']['away'] ?? 0);
             $h2hTotalGoals += $hg + $ag;
-            if ($hg > 0 && $ag > 0) $h2hBothScored++;
+            if ($hg > 0 && $ag > 0) {
+                $h2hBothScored++;
+            }
 
             $winner = ($hg > $ag) ? 'home' : (($ag > $hg) ? 'away' : 'draw');
             if ($match['teams']['home']['id'] == $homeTeamId) {
-                if ($winner == 'home')
+                if ($winner == 'home') {
                     $homeStrength += 1;
-                elseif ($winner == 'away')
+                } elseif ($winner == 'away') {
                     $awayStrength += 1;
+                }
             } else {
-                if ($winner == 'away')
+                if ($winner == 'away') {
                     $homeStrength += 1;
-                elseif ($winner == 'home')
+                } elseif ($winner == 'home') {
                     $awayStrength += 1;
+                }
             }
         }
 
@@ -464,19 +516,19 @@ class PredictionService
                 'category' => 'Home Win',
                 'market_type' => '1x2',
                 'home_form' => $homeForm,
-                'away_form' => $awayForm
+                'away_form' => $awayForm,
             ];
 
         }
 
-        // 2. Away Win (2) 
+        // 2. Away Win (2)
         if ($awayStrength >= $homeStrength) {
             $potentialPredictions[] = [
                 'tip' => '2',
                 'category' => 'Away Win',
                 'market_type' => '1x2',
                 'home_form' => $homeForm,
-                'away_form' => $awayForm
+                'away_form' => $awayForm,
             ];
         }
 
@@ -495,7 +547,7 @@ class PredictionService
             'category' => 'Double Chance',
             'market_type' => 'double_chance',
             'home_form' => $homeForm,
-            'away_form' => $awayForm
+            'away_form' => $awayForm,
         ];
 
         // 5. Over 1.5 Goals — skip only if both teams avg <1 goal per game
@@ -505,7 +557,7 @@ class PredictionService
                 'category' => 'Over 1.5 Goals',
                 'market_type' => 'goals',
                 'home_form' => $homeForm,
-                'away_form' => $awayForm
+                'away_form' => $awayForm,
             ];
         }
 
@@ -517,7 +569,7 @@ class PredictionService
                     'category' => 'Over 2.5 Goals',
                     'market_type' => 'goals',
                     'home_form' => $homeForm,
-                    'away_form' => $awayForm
+                    'away_form' => $awayForm,
                 ];
             } else {
                 $potentialPredictions[] = [
@@ -525,7 +577,7 @@ class PredictionService
                     'category' => 'Under 2.5 Goals',
                     'market_type' => 'goals',
                     'home_form' => $homeForm,
-                    'away_form' => $awayForm
+                    'away_form' => $awayForm,
                 ];
             }
         } else {
@@ -537,7 +589,7 @@ class PredictionService
                     'category' => 'Over 2.5 Goals',
                     'market_type' => 'goals',
                     'home_form' => $homeForm,
-                    'away_form' => $awayForm
+                    'away_form' => $awayForm,
                 ];
             } elseif ($h2hAvg !== null) {
                 $potentialPredictions[] = [
@@ -545,7 +597,7 @@ class PredictionService
                     'category' => 'Under 2.5 Goals',
                     'market_type' => 'goals',
                     'home_form' => $homeForm,
-                    'away_form' => $awayForm
+                    'away_form' => $awayForm,
                 ];
             }
         }
@@ -563,32 +615,31 @@ class PredictionService
                 'category' => 'Both Teams To Score',
                 'market_type' => 'btts',
                 'home_form' => $homeForm,
-                'away_form' => $awayForm
+                'away_form' => $awayForm,
             ];
         }
-
-
 
         // 9. Correct Score
         // We pick a plausible score based on strength
         $scoreTip = '1-0';
-        if ($homeStrength > $awayStrength + 5)
+        if ($homeStrength > $awayStrength + 5) {
             $scoreTip = '2-0';
-        elseif ($homeStrength > $awayStrength + 2)
+        } elseif ($homeStrength > $awayStrength + 2) {
             $scoreTip = '2-1';
-        elseif ($awayStrength > $homeStrength + 5)
+        } elseif ($awayStrength > $homeStrength + 5) {
             $scoreTip = '0-2';
-        elseif ($awayStrength > $homeStrength + 2)
+        } elseif ($awayStrength > $homeStrength + 2) {
             $scoreTip = '1-2';
-        elseif (abs($homeStrength - $awayStrength) <= 2)
+        } elseif (abs($homeStrength - $awayStrength) <= 2) {
             $scoreTip = '1-1';
+        }
 
         $potentialPredictions[] = [
             'tip' => $scoreTip,
             'category' => 'Correct Score',
             'market_type' => 'correct_score',
             'home_form' => $homeForm,
-            'away_form' => $awayForm
+            'away_form' => $awayForm,
         ];
 
         return $potentialPredictions;
@@ -598,11 +649,14 @@ class PredictionService
     {
         $points = 0;
         foreach ($form as $result) {
-            if ($result === 'W')
+            if ($result === 'W') {
                 $points += 3;
-            if ($result === 'D')
+            }
+            if ($result === 'D') {
                 $points += 1;
+            }
         }
+
         return $points;
     }
 
@@ -633,12 +687,13 @@ class PredictionService
                     if ($this->normalizeTip($value['value'], $marketType) === $this->normalizeTip($tip, $marketType)) {
                         $odd = floatval($value['odd']);
                         // Final Guard: Never return trash odds
-                        if ($odd < 1.10)
+                        if ($odd < 1.10) {
                             return null;
+                        }
 
                         return [
                             'value' => $odd,
-                            'bookmaker' => $bookmaker['name']
+                            'bookmaker' => $bookmaker['name'],
                         ];
                     }
                 }
@@ -653,36 +708,44 @@ class PredictionService
         $raw = strtoupper(trim($raw));
 
         if ($marketType === '1x2') {
-            if ($raw === 'HOME')
+            if ($raw === 'HOME') {
                 return '1';
-            if ($raw === 'AWAY')
+            }
+            if ($raw === 'AWAY') {
                 return '2';
-            if ($raw === 'DRAW')
+            }
+            if ($raw === 'DRAW') {
                 return 'X';
+            }
         }
 
         if ($marketType === 'goals') {
             if (preg_match('/(OVER|UNDER)\s+(\d+(\.\d+)?)/i', $raw, $matches)) {
-                return ucfirst(strtolower($matches[1])) . ' ' . $matches[2];
+                return ucfirst(strtolower($matches[1])).' '.$matches[2];
             }
         }
 
         if ($marketType === 'btts') {
             // Normalize BTTS tips
-            if ($raw === 'YES' || $raw === 'GG' || stripos($raw, 'BOTH') !== false)
+            if ($raw === 'YES' || $raw === 'GG' || stripos($raw, 'BOTH') !== false) {
                 return 'BTTS';
-            if ($raw === 'NO' || $raw === 'NG')
+            }
+            if ($raw === 'NO' || $raw === 'NG') {
                 return 'NO';
+            }
         }
 
         if ($marketType === 'double_chance') {
             // Normalize double chance tips
-            if (stripos($raw, 'HOME') !== false && stripos($raw, 'DRAW') !== false)
+            if (stripos($raw, 'HOME') !== false && stripos($raw, 'DRAW') !== false) {
                 return '1X';
-            if (stripos($raw, 'AWAY') !== false && stripos($raw, 'DRAW') !== false)
+            }
+            if (stripos($raw, 'AWAY') !== false && stripos($raw, 'DRAW') !== false) {
                 return 'X2';
-            if (stripos($raw, 'HOME') !== false && stripos($raw, 'AWAY') !== false)
+            }
+            if (stripos($raw, 'HOME') !== false && stripos($raw, 'AWAY') !== false) {
                 return '12';
+            }
         }
 
         if ($marketType === 'correct_score') {
@@ -693,16 +756,19 @@ class PredictionService
         return $raw;
     }
 
-    public function createPredictionRecord($fixture, $predictionData, $oddsData, $homeForm = [], $awayForm = [])
+    public function createPredictionRecord($fixture, $predictionData, $oddsData, $homeForm = [], $awayForm = [], ?Prediction $existing = null)
     {
         $homeTeam = $fixture['teams']['home']['name'];
         $awayTeam = $fixture['teams']['away']['name'];
 
-        $slug = Prediction::generateSlug($homeTeam, $awayTeam, $fixture['fixture']['id']);
+        // Preserve an existing slug so a persisted match URL never changes.
+        $slug = ($existing && $existing->slug)
+            ? $existing->slug
+            : Prediction::generateSlug($homeTeam, $awayTeam, $fixture['fixture']['id']);
 
         $probability = ApiFootballService::calculateProbability($oddsData['value']);
 
-        return Prediction::create([
+        $attributes = [
             'fixture_id' => $fixture['fixture']['id'],
             'league_id' => $fixture['league']['id'],
             'slug' => $slug,
@@ -725,119 +791,72 @@ class PredictionService
             'bookmaker_image' => null,
             'bookmaker_url' => null,
             'status' => 'pending',
-            'is_featured' => false,
-            'admin_note' => 'Auto-generated',
-        ]);
+            'content_updated_at' => now(),
+        ];
+
+        if ($existing) {
+            // Update in place. Never clobber admin-managed flags.
+            $existing->update($attributes);
+
+            return $existing;
+        }
+
+        $attributes['is_featured'] = false;
+        $attributes['admin_note'] = 'Auto-generated';
+
+        return Prediction::create($attributes);
     }
 
     /**
      * Check and update the status of a prediction based on the match outcome.
      *
-     * @param Prediction $prediction
      * @return string The new status ('won', 'lost', 'pending')
      */
     public function checkStatus(Prediction $prediction)
     {
         $fixture = $this->apiService->fetchFixtureDetails($prediction->fixture_id);
 
-        if (!$fixture) {
+        if (! $fixture) {
             Log::warning("Fixture not found for prediction ID: {$prediction->id}");
+
             return 'pending';
         }
 
-        $statusShort = $fixture['fixture']['status']['short'];
+        $statusShort = $fixture['fixture']['status']['short'] ?? null;
+        $homeGoals = $fixture['goals']['home'] ?? null;
+        $awayGoals = $fixture['goals']['away'] ?? null;
 
-        // Check if match is finished
-        if (!in_array($statusShort, ['FT', 'AET', 'PEN'])) {
+        // Single source of truth for settlement (won/lost/void/pending).
+        $status = $this->resultService->resolveStatus($prediction->tip, $homeGoals, $awayGoals, $statusShort);
+
+        if ($status === 'pending') {
             return 'pending';
         }
 
-        $homeGoals = $fixture['goals']['home'];
-        $awayGoals = $fixture['goals']['away'];
-        $tip = $prediction->tip;
+        // Only write when something actually changed. This prevents needless
+        // content_updated_at churn (and sitemap lastmod churn) when the
+        // scheduled job re-verifies already-settled matches.
+        $scoreChanged = $homeGoals !== null && $awayGoals !== null && (
+            (int) $prediction->home_score !== (int) $homeGoals ||
+            (int) $prediction->away_score !== (int) $awayGoals
+        );
 
-        $outcome = $this->determineOutcome($tip, $homeGoals, $awayGoals);
-
-        if ($outcome) {
-            $prediction->update([
-                'status' => $outcome,
-                'home_score' => $homeGoals,
-                'away_score' => $awayGoals
-            ]);
-            return $outcome;
+        if ($prediction->status === $status && ! $scoreChanged) {
+            return $status;
         }
 
-        return 'pending';
-    }
+        $updates = [
+            'status' => $status,
+            'content_updated_at' => now(),
+        ];
 
-    /**
-     * Determine if the tip won or lost based on scores.
-     *
-     * @param string $tip
-     * @param int $homeGoals
-     * @param int $awayGoals
-     * @return string|null 'won', 'lost', or null if undetermined
-     */
-    protected function determineOutcome($tip, $homeGoals, $awayGoals)
-    {
-        $tip = strtoupper(trim($tip));
-
-        // 1x2 Betting
-        if ($tip === '1' || $tip === 'HOME' || $tip === 'HOME WIN') {
-            return $homeGoals > $awayGoals ? 'won' : 'lost';
-        }
-        if ($tip === '2' || $tip === 'AWAY' || $tip === 'AWAY WIN') {
-            return $awayGoals > $homeGoals ? 'won' : 'lost';
-        }
-        if ($tip === 'X' || $tip === 'DRAW') {
-            return $homeGoals === $awayGoals ? 'won' : 'lost';
+        if ($homeGoals !== null && $awayGoals !== null) {
+            $updates['home_score'] = (int) $homeGoals;
+            $updates['away_score'] = (int) $awayGoals;
         }
 
-        // Double Chance
-        // Check starts_with to handle formats like "1X (Home or Draw)"
-        if (str_starts_with($tip, '1X')) {
-            return $homeGoals >= $awayGoals ? 'won' : 'lost';
-        }
-        if (str_starts_with($tip, 'X2')) {
-            return $awayGoals >= $homeGoals ? 'won' : 'lost';
-        }
-        if (str_starts_with($tip, '12')) {
-            return $homeGoals !== $awayGoals ? 'won' : 'lost';
-        }
+        $prediction->update($updates);
 
-        // Over/Under Goals (e.g., "Over 2.5", "Under 3.5", "Over 2.5 Goals")
-        if (preg_match('/(OVER|UNDER)\s+(\d+(\.\d+)?)/i', $tip, $matches)) {
-            $type = strtoupper($matches[1]);
-            $threshold = floatval($matches[2]);
-            $totalGoals = $homeGoals + $awayGoals;
-
-            if ($type === 'OVER') {
-                return $totalGoals > $threshold ? 'won' : 'lost';
-            }
-            if ($type === 'UNDER') {
-                return $totalGoals < $threshold ? 'won' : 'lost';
-            }
-        }
-
-        // BTTS (Both Teams To Score)
-        // Matches: "BTTS", "GG", "BTTS/GG (Both Teams To Score)"
-        if ($tip === 'BTTS' || $tip === 'GG' || str_contains($tip, 'BTTS') || str_contains($tip, 'BOTH TEAMS')) {
-            return ($homeGoals > 0 && $awayGoals > 0) ? 'won' : 'lost';
-        }
-        // NG (No Goal)
-        // Matches: "NG", "NO GG", "NG (No Goal)"
-        if ($tip === 'NG' || $tip === 'NO GG' || str_contains($tip, 'NO GOAL')) {
-            return ($homeGoals === 0 || $awayGoals === 0) ? 'won' : 'lost';
-        }
-
-        // Correct Score (e.g., "2-1")
-        if (preg_match('/^(\d+)-(\d+)$/', $tip, $matches)) {
-            $predictedHome = intval($matches[1]);
-            $predictedAway = intval($matches[2]);
-            return ($homeGoals === $predictedHome && $awayGoals === $predictedAway) ? 'won' : 'lost';
-        }
-
-        Log::warning("Unknown tip format: {$tip}");
-        return null; // Could not determine
+        return $status;
     }
 }

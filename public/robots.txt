@@ -8,4 +8,4 @@ Disallow: /vip/games
 Disallow: /vip/payment/
 Disallow: /cookie/payment/
 
-Sitemap: https://livescorestips.com/sitemap.xml
+Sitemap: https://www.livescorestips.com/sitemap.xml

@@ -51,7 +51,7 @@
                     $params['date'] = $item['date'];
                 }
             @endphp
-            <a href="{{ route($currentRoute, $params) }}"
+            <a href="{{ route($currentRoute, $params) }}"@if(str_ends_with($currentRoute, '.date')) rel="nofollow"@endif
                 class="bm-date-item {{ $isSelected ? 'active' : '' }}">
                 <span class="bm-date-day">{{ $item['day'] }}</span>
                 <span class="bm-date-label">{{ $item['label'] }}</span>

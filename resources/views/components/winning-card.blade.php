@@ -11,14 +11,14 @@
     <div class="bm-winning-match">
         <div class="bm-winning-team-row">
             <div class="bm-team-info">
-                <img src="{{ $winning->home_team_logo ?? asset('images/logo.png') }}" class="bm-team-logo-tiny">
+                <img src="{{ $winning->home_team_logo ?? asset('images/logo.png') }}" alt="{{ $winning->home_team }} logo" class="bm-team-logo-tiny">
                 <span>{{ $winning->home_team }}</span>
             </div>
             <span class="bm-score">{{ $winning->home_score ?? '-' }}</span>
         </div>
         <div class="bm-winning-team-row">
             <div class="bm-team-info">
-                <img src="{{ $winning->away_team_logo ?? asset('images/logo.png') }}" class="bm-team-logo-tiny">
+                <img src="{{ $winning->away_team_logo ?? asset('images/logo.png') }}" alt="{{ $winning->away_team }} logo" class="bm-team-logo-tiny">
                 <span>{{ $winning->away_team }}</span>
             </div>
             <span class="bm-score">{{ $winning->away_score ?? '-' }}</span>

@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\Prediction;
 use App\Models\SeoPage;
+use Carbon\Carbon;
 
 class SitemapController extends Controller
 {
@@ -20,7 +21,7 @@ class SitemapController extends Controller
                 ->where('published_at', '<=', now())
                 ->max('updated_at'),
             'seo' => SeoPage::where('is_active', true)->max('updated_at'),
-            'predictions' => Prediction::max('updated_at'),
+            'predictions' => Prediction::max('content_updated_at') ?? Prediction::max('updated_at'),
         ];
 
         return response()->view('sitemaps.index', compact('lastModified'))
@@ -42,7 +43,6 @@ class SitemapController extends Controller
             ['route' => 'contact', 'priority' => '0.7', 'changefreq' => 'monthly'],
             ['route' => 'privacy', 'priority' => '0.6', 'changefreq' => 'yearly'],
             ['route' => 'terms', 'priority' => '0.6', 'changefreq' => 'yearly'],
-            ['route' => 'worldcup.index', 'priority' => '0.8', 'changefreq' => 'daily'],
             ['route' => 'banker.show', 'priority' => '0.9', 'changefreq' => 'daily'],
         ];
 
@@ -70,13 +70,13 @@ class SitemapController extends Controller
 
             $urls[] = [
                 'loc' => route('category.show', $slug),
-                'lastmod' => $lastmod ? \Carbon\Carbon::parse($lastmod)->toAtomString() : null,
+                'lastmod' => $lastmod ? Carbon::parse($lastmod)->toAtomString() : null,
                 'changefreq' => 'daily',
                 'priority' => '0.8',
             ];
         }
 
-        $blogCategories = ArticleCategory::all();
+        $blogCategories = ArticleCategory::where('slug', '!=', 'blog')->get();
         foreach ($blogCategories as $category) {
             $urls[] = [
                 'loc' => route('blog.show', $category->slug),
@@ -134,25 +134,36 @@ class SitemapController extends Controller
     {
         $urls = [];
 
-        $predictions = Prediction::whereNotNull('match_date')
-            ->where(function ($query) {
-                $query->whereNotNull('slug')
-                    ->orWhereNotNull('fixture_id');
-            })
-            ->orderBy('match_date', 'desc')
-            ->orderBy('updated_at', 'desc')
+        // Only records that can be represented by a real, directly-resolving
+        // canonical URL are emitted. A record without a slug would resolve via
+        // the legacy fixture-id redirect (301), so it must not be listed.
+        $canonicalPredictions = Prediction::whereNotNull('slug')
+            ->whereNotNull('match_date')
+            ->where('match_date', '>=', now()->subDays(30)->startOfDay())
+            ->where('match_date', '<=', now()->addDays(14)->endOfDay())
             ->get()
-            ->unique(function ($prediction) {
-                return $prediction->fixture_id ?: 'manual_' . $prediction->id;
-            });
+            ->groupBy(function ($prediction) {
+                return $prediction->fixture_id ?: 'manual_'.$prediction->id;
+            })
+            ->map(function ($group) {
+                // One canonical URL per provider fixture: prefer a real tip,
+                // then the earliest record (stable identity).
+                return $group->sortBy(function ($prediction) {
+                    return ($prediction->hasRealTip() ? '0' : '1').str_pad((string) $prediction->id, 12, '0', STR_PAD_LEFT);
+                })->first();
+            })
+            ->filter()
+            ->values()
+            ->sortByDesc('match_date');
 
-        foreach ($predictions as $prediction) {
+        foreach ($canonicalPredictions as $prediction) {
             $date = $prediction->match_date->format('Y-m-d');
-            $slug = $prediction->slug ?: $prediction->fixture_id;
+
+            $lastmod = $prediction->content_updated_at ?: $prediction->updated_at;
 
             $urls[] = [
-                'loc' => route('fixture.show', ['slug' => $slug, 'date' => $date]),
-                'lastmod' => $prediction->updated_at->toAtomString(),
+                'loc' => route('fixture.show', ['slug' => $prediction->slug, 'date' => $date]),
+                'lastmod' => $lastmod ? $lastmod->toAtomString() : null,
                 'changefreq' => 'weekly',
                 'priority' => '0.5',
             ];

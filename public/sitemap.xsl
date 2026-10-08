@@ -10,7 +10,7 @@
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <meta name="robots" content="noindex,follow"/>
-                <title>XML Sitemap — LivescoresTips</title>
+                <title>XML Sitemap — LiveScores Tips</title>
                 <link rel="preconnect" href="https://fonts.googleapis.com"/>
                 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
                 <style>

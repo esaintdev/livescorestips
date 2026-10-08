@@ -3,11 +3,12 @@
 @section('title', $metadata['page_title'] ?? 'All Football Predictions - ' . config('app.name'))
 @section('description', $metadata['page_description'] ?? 'All football predictions for ' . (\Carbon\Carbon::parse($date)->format('M d, Y')) . '. Expert analysis, stats, and betting tips.')
 @section('keywords', $metadata['page_keywords'] ?? 'football predictions, betting tips, ' . $date)
+@section('robots', ($date ?? now()->format('Y-m-d')) === now()->format('Y-m-d') ? 'index, follow' : 'noindex, follow')
 
 @section('page-header')
-    <h2 class="bm-page-title">
+    <h1 class="bm-page-title">
         {{ $metadata['page_subheader'] ?? '' }}
-    </h2>
+    </h1>
     @if(isset($metadata['page_description']) && !empty($metadata['page_description']))
         <p class="bm-page-subheader">
             {{ $metadata['page_description'] }}
@@ -35,7 +36,7 @@
                 <div class="bm-league-header">
                     <i class="fa fa-star-o bm-star"></i>
                     <img src="{{ $tip->league_logo ? url($tip->league_logo) : asset('images/logo.png') }}"
-                        alt="Flag" style="max-height: 16px;">
+                        alt="{{ $tip->league_name ?? 'League' }} logo" style="max-height: 16px;">
                     <span>{{ $tip->league_country ?? 'Europe' }} - {{ $tip->league_name }}</span>
                 </div>
             @endif

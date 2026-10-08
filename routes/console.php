@@ -14,6 +14,11 @@ Illuminate\Support\Facades\Schedule::command('prediction:update-status')->everyF
 // This ensures all 11 categories have 15 games each for the next 3 days
 Illuminate\Support\Facades\Schedule::command('prediction:fill-all --limit=15 --days=3')->dailyAt('02:00');
 
+// Mark banker predictions daily at 3 AM (after fill-all completes)
+Illuminate\Support\Facades\Schedule::command('prediction:mark-bankers --max-bankers=5')
+    ->dailyAt('03:00')
+    ->withoutOverlapping(30);
+
 // Schedule World Cup 2026 prediction generation daily at midnight
 // Checks all 72 World Cup fixtures (June 11-28) daily and generates predictions
 // as odds become available closer to match dates
@@ -21,14 +26,10 @@ Illuminate\Support\Facades\Schedule::command('prediction:auto-generate --count=1
     ->dailyAt('00:00')
     ->withoutOverlapping(60);
 
-// Fetch Sky Sports news articles (2 runs/day, 1 article each = 4 credits/day)
-// Free tier: 100 credits/month → ~120 used — lasts ~25 days
-Illuminate\Support\Facades\Schedule::command('news:fetch --limit=1')
-    ->dailyAt('08:00')
-    ->withoutOverlapping(30);
-Illuminate\Support\Facades\Schedule::command('news:fetch --limit=1')
-    ->dailyAt('20:00')
-    ->withoutOverlapping(30);
+// Sky Sports news import — DISABLED.
+// The articles imported by SkySportsNewsService were removed from the site and
+// the twice-daily import was stopped so no more Sky Sports content is published.
+// The service/command remain in the codebase but are no longer scheduled.
 
 // Prune expired database cache entries hourly
 // Most cache entries expire after 1 hour, so hourly cleanup prevents bloat

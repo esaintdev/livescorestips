@@ -5,6 +5,11 @@
 
     RewriteEngine On
 
+    # Redirect apex domain (non-www) to www only
+    # Subdomains like admin. are intentionally left untouched.
+    RewriteCond %{HTTP_HOST} ^livescorestips\.com$ [NC]
+    RewriteRule ^ https://www.livescorestips.com%{REQUEST_URI} [R=301,L]
+
     # Redirect HTTP to HTTPS
     RewriteCond %{HTTPS} !=on
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]

@@ -40,10 +40,6 @@
             <span>My VIP Games</span>
         </a>
         @endauth
-        <a href="{{ route('worldcup.index') }}" class="bm-sidebar-link {{ request()->routeIs('worldcup.*') ? 'active' : '' }}" style="color: #ff6b00;">
-            <i class="fa fa-globe"></i>
-            <span style="font-weight: 600;">World Cup 2026</span>
-        </a>
         <a href="{{ route('vip.index') }}" class="bm-sidebar-link {{ request()->routeIs('vip.*') ? 'active' : '' }}" style="color: #ff6b00;">
             <i class="fa fa-star"></i>
             <span style="font-weight: 600;">VIP</span>

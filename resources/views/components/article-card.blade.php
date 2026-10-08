@@ -3,7 +3,7 @@
     <div class="col-12">
         <div class="row">
             <div class="px-1 py-1 blog-img-wrap col-lg-12 col-5">
-                <img src="{{ $image }}" class="img-fluid blog-img" alt="" style="height:201px;">
+                <img src="{{ $image }}" class="img-fluid blog-img" alt="{{ $titleShort ?? Str::limit($title, 50) }}" style="height:201px;">
                 @if(isset($category) && $category)
                     <span class="badge badge-primary"
                         style="position: absolute; top: 10px; left: 15px; background: linear-gradient(135deg, #C1392A 0%, #a02f22 100%); padding: 5px 12px; font-size: 11px;">

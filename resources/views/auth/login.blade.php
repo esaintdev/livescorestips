@@ -4,7 +4,7 @@
 @section('description', $metadata['page_description'] ?? 'Login to access your premium VIP football predictions.')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/auth.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset_v('css/auth.css') }}">
 @endpush
 
 @section('content')

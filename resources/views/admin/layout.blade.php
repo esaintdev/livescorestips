@@ -1788,6 +1788,11 @@
                     <i class="fa fa-list"></i>
                     <span>All Predictions</span>
                 </a>
+                <a href="{{ route('admin.predictions.bankers') }}"
+                    class="nav-link {{ request()->routeIs('admin.predictions.bankers') ? 'active' : '' }}">
+                    <i class="fa fa-shield text-warning"></i>
+                    <span>Banker Tips</span>
+                </a>
                 <a href="{{ route('admin.fixtures.index') }}"
                     class="nav-link {{ request()->routeIs('admin.fixtures.*') ? 'active' : '' }}">
                     <i class="fa fa-soccer-ball-o"></i>

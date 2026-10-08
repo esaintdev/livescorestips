@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Prediction;
 use App\Services\PredictionService;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 
 class UpdatePredictionStatus extends Command
 {
@@ -38,6 +38,7 @@ class UpdatePredictionStatus extends Command
 
         if ($predictions->isEmpty()) {
             $this->info('No pending past predictions found.');
+
             return 0;
         }
 
@@ -55,18 +56,52 @@ class UpdatePredictionStatus extends Command
                     $this->info("-> Updated to: {$status}");
                     $updated++;
                 } else {
-                    $this->warn("-> Still pending (match might not be finished or API delay)");
+                    $this->warn('-> Still pending (match might not be finished or API delay)');
                 }
 
                 // Avoid API rate limits
                 usleep(200000); // 0.2s pause
             } catch (\Exception $e) {
-                $this->error("-> Error: " . $e->getMessage());
+                $this->error('-> Error: '.$e->getMessage());
                 $failed++;
             }
         }
 
         $this->info("Completed. Updated: {$updated}, Failed: {$failed}");
+
+        // Re-verify recently finished matches. Knockout games can be settled at
+        // 90 minutes before extra time / penalties are played, and providers
+        // occasionally correct scores — re-checking a short window keeps stored
+        // results accurate. checkStatus only writes when something changed.
+        $settled = Prediction::whereIn('status', ['won', 'lost'])
+            ->where('match_date', '<=', Carbon::now()->subHours(2))
+            ->where('match_date', '>=', Carbon::now()->subHours(8))
+            ->get();
+
+        if ($settled->isNotEmpty()) {
+            $this->info("Re-verifying {$settled->count()} recently settled predictions...");
+            $corrected = 0;
+
+            foreach ($settled as $prediction) {
+                try {
+                    $before = [$prediction->status, $prediction->home_score, $prediction->away_score];
+                    $predictionService->checkStatus($prediction);
+                    $prediction->refresh();
+
+                    if ($before !== [$prediction->status, $prediction->home_score, $prediction->away_score]) {
+                        $corrected++;
+                        $this->warn("-> Corrected fixture {$prediction->fixture_id}: {$before[0]} {$before[1]}-{$before[2]} => {$prediction->status} {$prediction->home_score}-{$prediction->away_score}");
+                    }
+
+                    usleep(200000);
+                } catch (\Exception $e) {
+                    $this->error("-> Error re-checking {$prediction->fixture_id}: ".$e->getMessage());
+                }
+            }
+
+            $this->info("Re-verification complete. Corrected: {$corrected}");
+        }
+
         return 0;
     }
 }

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', $metadata['page_title'] ?? config('app.name', 'LiveScore tips') . ': LiveScores Tips prediction and football tips')
-@section('description', $metadata['page_description'] ?? 'LiveScore Tips is the best source of well-researched football statistics, analysis and free football prediction site. Start winning now.')
+@section('title', $metadata['page_title'] ?? config('app.name', 'LiveScores Tips') . ': LiveScores Tips prediction and football tips')
+@section('description', $metadata['page_description'] ?? 'LiveScores Tips is the best source of well-researched football statistics, analysis and free football prediction site. Start winning now.')
 @section('keywords', $metadata['page_keywords'] ?? 'best prediction site, Betting Tips, Football Predictions, Live Score, free football predictions, 100 sure prediction, accurate football predictions')
 
 @section('page-header')

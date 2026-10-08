@@ -52,6 +52,11 @@ class AdminPredictionController extends Controller
             $query->whereDate('match_date', '<=', $request->date_to);
         }
 
+        // Filter by banker
+        if ($request->filled('banker')) {
+            $query->where('is_banker', $request->banker === 'yes');
+        }
+
         // Filter by month
         if ($request->filled('month')) {
             $date = Carbon::parse($request->month . '-01');
@@ -62,100 +67,7 @@ class AdminPredictionController extends Controller
         // Get all predictions and apply custom sorting
         $allPredictions = $query->get();
 
-        // Build priority lists from popular leagues
-        $popularLeagues = $this->apiService->getPopularLeagues();
-        $popularNames = array_column($popularLeagues, 'name');
-
-        $uefaFifaCompetitions = [
-            'UEFA Champions League',
-            'UEFA Europa League',
-            'UEFA Europa Conference League',
-            'UEFA Nations League',
-            'FIFA World Cup',
-            'World Cup',
-            'UEFA European Championship',
-            'Euro Championship',
-            'Africa Cup of Nations',
-            'Copa America',
-            'UEFA Super Cup',
-            'FIFA Club World Cup',
-        ];
-
-        $topEuropeanLeagues = [
-            'Premier League',
-            'La Liga',
-            'Serie A',
-            'Bundesliga',
-            'Ligue 1',
-            'Primeira Liga',
-            'Eredivisie',
-        ];
-
-        // Sort predictions by priority
-        $sortedPredictions = $allPredictions->sort(function ($a, $b) use ($uefaFifaCompetitions, $topEuropeanLeagues, $popularNames) {
-            // Determine priority for prediction A
-            $priorityA = 3; // Default: other leagues
-            foreach ($uefaFifaCompetitions as $comp) {
-                if (stripos($a->league_name, $comp) !== false) {
-                    $priorityA = 1; // UEFA/FIFA competitions
-                    break;
-                }
-            }
-            if ($priorityA === 3) {
-                foreach ($topEuropeanLeagues as $league) {
-                    if (stripos($a->league_name, $league) !== false) {
-                        $priorityA = 2; // Top European leagues
-                        break;
-                    }
-                }
-            }
-            if ($priorityA === 3) {
-                foreach ($popularNames as $name) {
-                    if (stripos($a->league_name, $name) !== false) {
-                        $priorityA = 2; // Popular leagues
-                        break;
-                    }
-                }
-            }
-
-            // Determine priority for prediction B
-            $priorityB = 3; // Default: other leagues
-            foreach ($uefaFifaCompetitions as $comp) {
-                if (stripos($b->league_name, $comp) !== false) {
-                    $priorityB = 1; // UEFA/FIFA competitions
-                    break;
-                }
-            }
-            if ($priorityB === 3) {
-                foreach ($topEuropeanLeagues as $league) {
-                    if (stripos($b->league_name, $league) !== false) {
-                        $priorityB = 2; // Top European leagues
-                        break;
-                    }
-                }
-            }
-            if ($priorityB === 3) {
-                foreach ($popularNames as $name) {
-                    if (stripos($b->league_name, $name) !== false) {
-                        $priorityB = 2; // Popular leagues
-                        break;
-                    }
-                }
-            }
-
-            // First sort by match date (descending) - Newest dates first
-            if ($a->match_date !== $b->match_date) {
-                return strtotime($b->match_date) - strtotime($a->match_date);
-            }
-
-            // If match dates are the same, sort by priority (lower number = higher priority)
-            if ($priorityA !== $priorityB) {
-                return $priorityA - $priorityB;
-            }
-
-            // Finally sort by time (ascending) for same day/priority
-            return strcmp($a->match_time, $b->match_time);
-        });
+        $sortedPredictions = $this->sortByLeaguePriority($allPredictions);
 
         // Paginate the sorted results
         $perPage = 20;
@@ -422,6 +334,31 @@ class AdminPredictionController extends Controller
         return back()->with('success', "$count predictions deleted successfully.");
     }
 
+    public function bulkBanker(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:predictions,id',
+            'action' => 'required|in:mark,unmark',
+        ]);
+
+        $count = count($request->ids);
+        $value = $request->action === 'mark';
+        Prediction::whereIn('id', $request->ids)->update(['is_banker' => $value]);
+
+        $action = $value ? 'marked as' : 'removed from';
+        return back()->with('success', "$count predictions $action banker successfully.");
+    }
+
+    public function toggleBanker(Prediction $prediction)
+    {
+        $prediction->update(['is_banker' => !$prediction->is_banker]);
+
+        return back()->with('success', $prediction->is_banker
+            ? '"' . $prediction->home_team . ' vs ' . $prediction->away_team . '" marked as banker.'
+            : 'Banker status removed from "' . $prediction->home_team . ' vs ' . $prediction->away_team . '".');
+    }
+
     public function checkStatus(Prediction $prediction, \App\Services\PredictionService $predictionService)
     {
         $status = $predictionService->checkStatus($prediction);
@@ -487,6 +424,95 @@ class AdminPredictionController extends Controller
             // Free up connection after operation
             \DB::disconnect();
         }
+    }
+
+    public function bankers(Request $request)
+    {
+        $query = Prediction::where('is_banker', true);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('home_team', 'like', "%{$search}%")
+                    ->orWhere('away_team', 'like', "%{$search}%")
+                    ->orWhere('league_name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('match_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('match_date', '<=', $request->date_to);
+        }
+
+        $allPredictions = $query->get();
+        $sortedPredictions = $this->sortByLeaguePriority($allPredictions);
+
+        $perPage = 20;
+        $currentPage = request()->get('page', 1);
+        $predictions = new \Illuminate\Pagination\LengthAwarePaginator(
+            $sortedPredictions->forPage($currentPage, $perPage),
+            $sortedPredictions->count(),
+            $perPage,
+            $currentPage,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
+        return view('admin.predictions.bankers', compact('predictions'));
+    }
+
+    private function getUefaFifaCompetitions(): array
+    {
+        return [
+            'UEFA Champions League', 'UEFA Europa League', 'UEFA Europa Conference League',
+            'UEFA Nations League', 'FIFA World Cup', 'World Cup',
+            'UEFA European Championship', 'Euro Championship',
+            'Africa Cup of Nations', 'Copa America', 'UEFA Super Cup', 'FIFA Club World Cup',
+        ];
+    }
+
+    private function getTopEuropeanLeagues(): array
+    {
+        return [
+            'Premier League', 'La Liga', 'Serie A', 'Bundesliga',
+            'Ligue 1', 'Primeira Liga', 'Eredivisie',
+        ];
+    }
+
+    private function getLeaguePriority($leagueName, array $uefaFifa, array $topEuropean, array $popularNames): int
+    {
+        foreach ($uefaFifa as $comp) {
+            if (stripos($leagueName, $comp) !== false) return 1;
+        }
+        foreach ($topEuropean as $league) {
+            if (stripos($leagueName, $league) !== false) return 2;
+        }
+        foreach ($popularNames as $name) {
+            if (stripos($leagueName, $name) !== false) return 2;
+        }
+        return 3;
+    }
+
+    private function sortByLeaguePriority($predictions)
+    {
+        $popularLeagues = $this->apiService->getPopularLeagues();
+        $popularNames = array_column($popularLeagues, 'name');
+        $uefaFifa = $this->getUefaFifaCompetitions();
+        $topEuropean = $this->getTopEuropeanLeagues();
+
+        return $predictions->sort(function ($a, $b) use ($uefaFifa, $topEuropean, $popularNames) {
+            $priorityA = $this->getLeaguePriority($a->league_name, $uefaFifa, $topEuropean, $popularNames);
+            $priorityB = $this->getLeaguePriority($b->league_name, $uefaFifa, $topEuropean, $popularNames);
+
+            if ($a->match_date !== $b->match_date) {
+                return strtotime($b->match_date) - strtotime($a->match_date);
+            }
+            if ($priorityA !== $priorityB) {
+                return $priorityA - $priorityB;
+            }
+            return strcmp($a->match_time, $b->match_time);
+        })->values();
     }
 }
 

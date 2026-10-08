@@ -56,7 +56,7 @@ return [
                     'allow_self_signed' => true,
                 ],
             ],
-            'to_address' => env('MAIL_TO_ADDRESS', 'info@livescorestips.com'),
+            'to_address' => env('MAIL_TO_ADDRESS', 'livescorestips@gmail.com'),
         ],
 
         'ses' => [

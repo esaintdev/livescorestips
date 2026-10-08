@@ -95,7 +95,7 @@ if $PRUNE; then
     RSYNC_OPTS+=(--delete)
 fi
 
-echo "==> Deploying LivescoresTips"
+echo "==> Deploying LiveScores Tips"
 echo "    Local:  ${LOCAL_PATH}"
 echo "    Remote: ${REMOTE}:${REMOTE_DIR}"
 echo ""

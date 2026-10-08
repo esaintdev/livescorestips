@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Prediction extends Model
 {
@@ -37,6 +38,7 @@ class Prediction extends Model
         'is_featured',
         'is_banker',
         'admin_note',
+        'content_updated_at',
     ];
 
     protected $casts = [
@@ -46,6 +48,7 @@ class Prediction extends Model
         'odds' => 'decimal:2',
         'probability' => 'decimal:2',
         'is_banker' => 'boolean',
+        'content_updated_at' => 'datetime',
     ];
 
     // Scopes
@@ -80,11 +83,11 @@ class Prediction extends Model
         if ($start > $end) {
             $query->where(function ($q) use ($start, $end) {
                 $q->whereTime('match_time', '>=', $start)
-                  ->orWhereTime('match_time', '<=', $end);
+                    ->orWhereTime('match_time', '<=', $end);
             });
         } else {
             $query->whereTime('match_time', '>=', $start)
-                  ->whereTime('match_time', '<=', $end);
+                ->whereTime('match_time', '<=', $end);
         }
     }
 
@@ -101,21 +104,21 @@ class Prediction extends Model
      */
     public static function generateSlug($homeTeam, $awayTeam, $fixtureId)
     {
-        $baseSlug = \Illuminate\Support\Str::slug($homeTeam . '-vs-' . $awayTeam);
+        $baseSlug = Str::slug($homeTeam.'-vs-'.$awayTeam);
         $slug = $baseSlug;
 
         // If the base slug already exists, try appending the fixture ID
         if (static::where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '-' . $fixtureId;
+            $slug = $baseSlug.'-'.$fixtureId;
         }
 
         // If that still exists (e.g. second prediction for same match), append a counter
         if (static::where('slug', $slug)->exists()) {
             $count = 2;
-            while (static::where('slug', $slug . '-' . $count)->exists()) {
+            while (static::where('slug', $slug.'-'.$count)->exists()) {
                 $count++;
             }
-            $slug = $slug . '-' . $count;
+            $slug = $slug.'-'.$count;
         }
 
         return $slug;
@@ -127,9 +130,44 @@ class Prediction extends Model
     public function getScoreDisplayAttribute()
     {
         if ($this->home_score !== null && $this->away_score !== null) {
-            return $this->home_score . '-' . $this->away_score;
+            return $this->home_score.'-'.$this->away_score;
         }
+
         return null;
+    }
+
+    /**
+     * Whether this record carries a real, usable tip (not a placeholder).
+     */
+    public function hasRealTip(): bool
+    {
+        $tip = trim((string) $this->tip);
+
+        return $tip !== '' && strcasecmp($tip, 'Awaiting odds') !== 0;
+    }
+
+    /**
+     * Whether the prediction has a terminal settlement status.
+     */
+    public function isTerminal(): bool
+    {
+        return in_array($this->status, ['won', 'lost', 'void'], true);
+    }
+
+    /**
+     * Resolve the stable canonical prediction record for a provider fixture.
+     *
+     * Multiple prediction/category records may share one fixture_id. The
+     * canonical representation is the first-created record with a real tip,
+     * falling back to the first record that has a slug.
+     */
+    public static function canonicalForFixture($fixtureId): ?self
+    {
+        return static::where('fixture_id', $fixtureId)
+            ->whereNotNull('slug')
+            ->orderByRaw("CASE WHEN tip IS NULL OR tip = '' OR tip = 'Awaiting odds' THEN 1 ELSE 0 END")
+            ->orderBy('id')
+            ->first();
     }
 
     /**
@@ -139,10 +177,12 @@ class Prediction extends Model
     {
         if ($this->status === 'won' || $this->status === 'lost') {
             if ($this->score_display) {
-                return ucfirst($this->status) . ' (' . $this->score_display . ')';
+                return ucfirst($this->status).' ('.$this->score_display.')';
             }
+
             return ucfirst($this->status);
         }
+
         return ucfirst($this->status);
     }
 }

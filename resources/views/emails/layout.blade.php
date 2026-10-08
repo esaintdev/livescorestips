@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $subject ?? 'LiveScores Tips' }}</title>
+    <title>{{ $subject ?? config('app.name', 'LiveScores Tips') }}</title>
 </head>
 
 <body
@@ -20,7 +20,7 @@
                     <tr>
                         <td
                             style="background: linear-gradient(135deg, #092337 0%, #14588B 100%); padding: 40px 20px; text-align: center;">
-                            <img src="{{ url('images/logo.png') }}" alt="LiveScores Tips"
+                            <img src="{{ url('images/logo.png') }}" alt="{{ config('app.name', 'LiveScores Tips') }}"
                                 style="max-width: 200px; height: auto; display: block; margin: 0 auto;">
                         </td>
                     </tr>
@@ -43,14 +43,14 @@
                     <tr>
                         <td style="padding: 30px; text-align: center; background-color: #f8f9fa;">
                             <p style="margin: 0 0 15px; color: #092337; font-size: 16px; font-weight: 600;">
-                                LiveScores Tips
+                                {{ config('app.name', 'LiveScores Tips') }}
                             </p>
                             <p style="margin: 0 0 10px; color: #666666; font-size: 14px;">
                                 Daily Free Football Prediction Tips
                             </p>
                             <p style="margin: 0 0 15px; color: #666666; font-size: 13px;">
-                                <a href="mailto:marketing@livescorestips.com"
-                                    style="color: #14588B; text-decoration: none;">marketing@livescorestips.com</a>
+                                <a href="mailto:livescorestips@gmail.com"
+                                    style="color: #14588B; text-decoration: none;">livescorestips@gmail.com</a>
                             </p>
                             <p style="margin: 0 0 20px; color: #666666; font-size: 13px;">
                                 <a href="{{ url('/') }}"

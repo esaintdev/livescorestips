@@ -49,4 +49,8 @@ return [
         'key' => env('PARSE_BOT_API_KEY'),
     ],
 
+    'article_api' => [
+        'key' => env('ARTICLE_API_KEY'),
+    ],
+
 ];

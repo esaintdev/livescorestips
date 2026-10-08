@@ -16,30 +16,46 @@
     <div class="bm-sidebar-widget">
         <h3 class="bm-widget-title">Categories</h3>
         <div class="bm-widget-list">
+            @if(in_array('over-2-5-goals', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'over-2-5-goals') }}" class="bm-widget-item">
                 <span>Over 2.5 Goals</span>
             </a>
+            @endif
+            @if(in_array('over-1-5-goals', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'over-1-5-goals') }}" class="bm-widget-item">
                 <span>Over 1.5 Goals</span>
             </a>
+            @endif
+            @if(in_array('btts-gg', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'btts-gg') }}" class="bm-widget-item">
                 <span>BTTS/GG</span>
             </a>
+            @endif
+            @if(in_array('double-chance', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'double-chance') }}" class="bm-widget-item">
                 <span>Double Chance</span>
             </a>
+            @endif
+            @if(in_array('draws', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'draws') }}" class="bm-widget-item">
                 <span>Draws</span>
             </a>
+            @endif
+            @if(in_array('home-wins', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'home-wins') }}" class="bm-widget-item">
                 <span>Home Wins</span>
             </a>
+            @endif
+            @if(in_array('away-wins', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'away-wins') }}" class="bm-widget-item">
                 <span>Away Wins</span>
             </a>
+            @endif
+            @if(in_array('correct-score', $activeCategorySlugs ?? []))
             <a href="{{ route('category.show', 'correct-score') }}" class="bm-widget-item">
                 <span>Correct Score</span>
             </a>
+            @endif
         </div>
     </div>
 

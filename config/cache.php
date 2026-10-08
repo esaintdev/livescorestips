@@ -114,4 +114,20 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Guest Page Cache
+    |--------------------------------------------------------------------------
+    |
+    | Full-page cache for anonymous public pages. Served from the store below
+    | (defaults to the file store so it never bloats the database cache table).
+    |
+    */
+
+    'page_cache' => [
+        'enabled' => env('PAGE_CACHE_ENABLED', true),
+        'ttl' => (int) env('PAGE_CACHE_TTL', 120),
+        'store' => env('PAGE_CACHE_STORE', 'file'),
+    ],
+
 ];

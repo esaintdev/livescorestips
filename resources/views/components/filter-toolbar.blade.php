@@ -13,6 +13,8 @@
     $previousDate = \Carbon\Carbon::parse($date)->subDay()->format('Y-m-d');
     $nextDate = \Carbon\Carbon::parse($date)->addDay()->format('Y-m-d');
     $isToday = $date == now()->format('Y-m-d');
+    $prevIsToday = $previousDate == now()->format('Y-m-d');
+    $nextIsToday = $nextDate == now()->format('Y-m-d');
 
     // Build prev/next route
     $prevParams = $routeParams;
@@ -45,6 +47,72 @@
     }
 
     $formattedDate = \Carbon\Carbon::parse($date)->format('d-m-Y');
+
+    // Normalize market filters
+    $normalizedMarketFilters = collect($marketFilters);
+    if ($normalizedMarketFilters->isEmpty()) {
+        $normalizedMarketFilters = collect([
+            ['name' => 'All Tips', 'slug' => null, 'active' => ($route === 'home')],
+            ['name' => 'Banker Tips', 'slug' => 'banker-tips', 'active' => in_array($route, ['banker.show', 'banker.date'])],
+            ['name' => 'Home Win', 'slug' => 'home-wins', 'active' => false],
+            ['name' => 'Draw', 'slug' => 'draws', 'active' => false],
+            ['name' => 'Away Win', 'slug' => 'away-wins', 'active' => false],
+            ['name' => 'Both Teams To Score', 'slug' => 'btts-gg', 'active' => false],
+            ['name' => 'Over 2.5 Goals', 'slug' => 'over-2-5-goals', 'active' => false],
+            ['name' => 'Over 1.5 Goals', 'slug' => 'over-1-5-goals', 'active' => false],
+            ['name' => 'Double Chance', 'slug' => 'double-chance', 'active' => false],
+            ['name' => 'Correct Score', 'slug' => 'correct-score', 'active' => false],
+        ]);
+    }
+
+    $selectedMarketSlug = $selectedMarket ?? request()->route('categorySlug') ?? request()->input('market');
+    $activeMarketName = 'All Tips';
+
+    if (in_array($route, ['banker.show', 'banker.date'])) {
+        $activeMarketName = 'Banker Tips';
+    } else {
+        foreach ($normalizedMarketFilters as $mf) {
+            $slug = is_array($mf) ? ($mf['slug'] ?? null) : ($mf->slug ?? null);
+            $name = is_array($mf) ? ($mf['name'] ?? 'All Tips') : ($mf->name ?? 'All Tips');
+            $isActive = is_array($mf) ? (!empty($mf['active'])) : (!empty($mf->active));
+
+            if (($selectedMarketSlug && $slug === $selectedMarketSlug) || ($isActive && $selectedMarketSlug === $slug)) {
+                $activeMarketName = $name;
+                break;
+            }
+        }
+    }
+
+    $sortOptions = [
+        ['name' => 'Time', 'slug' => 'time'],
+        ['name' => 'League', 'slug' => 'league'],
+        ['name' => 'Probability', 'slug' => 'predictions'],
+        ['name' => 'Odds', 'slug' => 'odds'],
+    ];
+
+    $probOptions = [
+        ['name' => 'All Matches', 'slug' => '0'],
+        ['name' => '50% – 100%', 'slug' => '50'],
+        ['name' => '55% – 100%', 'slug' => '55'],
+        ['name' => '60% – 100%', 'slug' => '60'],
+        ['name' => '65% – 100%', 'slug' => '65'],
+        ['name' => '70% – 100%', 'slug' => '70'],
+        ['name' => '75% – 100%', 'slug' => '75'],
+        ['name' => '80% – 100%', 'slug' => '80'],
+    ];
+
+    $oddsOptions = [
+        ['name' => 'Any', 'slug' => '0'],
+        ['name' => '> 1.20', 'slug' => '1.20'],
+        ['name' => '> 1.30', 'slug' => '1.30'],
+        ['name' => '> 1.40', 'slug' => '1.40'],
+        ['name' => '> 1.50', 'slug' => '1.50'],
+        ['name' => '> 1.60', 'slug' => '1.60'],
+        ['name' => '> 1.70', 'slug' => '1.70'],
+        ['name' => '> 1.80', 'slug' => '1.80'],
+        ['name' => '> 1.90', 'slug' => '1.90'],
+        ['name' => '> 2.00', 'slug' => '2.00'],
+    ];
 @endphp
 
 <div id="bm-filter-bar" class="bm-filter-bar">
@@ -57,48 +125,93 @@
             @if($liveCount > 0) <span class="bm-live-count">{{ $liveCount }}</span> @endif
         </a>
 
-        {{-- MATCHES / Market Dropdown --}}
+        {{-- MATCHES / Market Dropdown with real crawlable HTML <a> links --}}
         <div id="bm-dd-markets" class="bm-dd-wrap"
-             data-options='@json(collect($marketFilters)->map(fn($f) => ['name' => $f['name'], 'slug' => $f['slug'] ?? ''])->values())'>
-            <button id="bm-dd-btn-markets" class="bm-dd-btn" type="button">
+             data-options='@json($normalizedMarketFilters->map(fn($f) => ['name' => is_array($f) ? $f['name'] : $f->name, 'slug' => (is_array($f) ? ($f['slug'] ?? '') : ($f->slug ?? ''))])->values())'>
+            <button id="bm-dd-btn-markets" class="bm-dd-btn" type="button" aria-haspopup="listbox">
                 <span class="bm-dd-label">Matches</span>
-                <span class="bm-dd-value">All Tips</span>
+                <span class="bm-dd-value">{{ $activeMarketName }}</span>
                 <i class="fa fa-caret-down bm-dd-arrow"></i>
             </button>
-            <ul class="bm-dd-menu" role="listbox"></ul>
+            <ul class="bm-dd-menu" role="listbox">
+                @foreach($normalizedMarketFilters as $f)
+                    @php
+                        $slug = is_array($f) ? ($f['slug'] ?? null) : ($f->slug ?? null);
+                        $name = is_array($f) ? ($f['name'] ?? '') : ($f->name ?? '');
+                        $isItemActive = ($selectedMarketSlug && $slug === $selectedMarketSlug)
+                            || (!$selectedMarketSlug && empty($slug) && !in_array($route, ['banker.show', 'banker.date']))
+                            || (in_array($route, ['banker.show', 'banker.date']) && $slug === 'banker-tips');
+
+                        if (in_array($route, ['worldcup.index', 'worldcup.date'])) {
+                            $targetUrl = $slug
+                                ? ($isToday ? route('worldcup.index', ['market' => $slug]) : route('worldcup.date', ['market' => $slug, 'date' => $date]))
+                                : ($isToday ? route('worldcup.index') : route('worldcup.date', ['date' => $date]));
+                        } elseif ($slug === 'banker-tips') {
+                            $targetUrl = $isToday ? route('banker.show') : route('banker.date', ['date' => $date]);
+                        } elseif ($slug) {
+                            $targetUrl = $isToday ? url('/' . $slug) : url('/' . $slug . '/' . $date);
+                        } else {
+                            $targetUrl = $isToday ? url('/') : url('/home/' . $date);
+                        }
+                    @endphp
+                    <li class="bm-dd-item bm-dd-item-link {{ $isItemActive ? 'active' : '' }}" role="option" data-value="{{ $slug ?? '' }}">
+                        <a href="{{ $targetUrl }}" class="bm-dd-link" @if(!$isToday) rel="nofollow" @endif>
+                            {{ $name }}
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
         </div>
 
         {{-- SORT BY Dropdown --}}
         <div id="bm-dd-sort" class="bm-dd-wrap"
-             data-options='[{"name":"Time","slug":"time"},{"name":"League","slug":"league"},{"name":"Probability","slug":"predictions"},{"name":"Odds","slug":"odds"}]'>
-            <button id="bm-dd-btn-sort" class="bm-dd-btn" type="button">
+             data-options='@json($sortOptions)'>
+            <button id="bm-dd-btn-sort" class="bm-dd-btn" type="button" aria-haspopup="listbox">
                 <span class="bm-dd-label">Sort by</span>
                 <span class="bm-dd-value">Time</span>
                 <i class="fa fa-caret-down bm-dd-arrow"></i>
             </button>
-            <ul class="bm-dd-menu" role="listbox"></ul>
+            <ul class="bm-dd-menu" role="listbox">
+                @foreach($sortOptions as $idx => $sOpt)
+                    <li class="bm-dd-item {{ $idx === 0 ? 'active' : '' }}" role="option" data-value="{{ $sOpt['slug'] }}">
+                        {{ $sOpt['name'] }}
+                    </li>
+                @endforeach
+            </ul>
         </div>
 
         {{-- PREDICTION / Probability Dropdown --}}
         <div id="bm-dd-prediction" class="bm-dd-wrap"
-             data-options='[{"name":"All Matches","slug":"0"},{"name":"50% – 100%","slug":"50"},{"name":"55% – 100%","slug":"55"},{"name":"60% – 100%","slug":"60"},{"name":"65% – 100%","slug":"65"},{"name":"70% – 100%","slug":"70"},{"name":"75% – 100%","slug":"75"},{"name":"80% – 100%","slug":"80"}]'>
-            <button id="bm-dd-btn-prediction" class="bm-dd-btn" type="button">
+             data-options='@json($probOptions)'>
+            <button id="bm-dd-btn-prediction" class="bm-dd-btn" type="button" aria-haspopup="listbox">
                 <span class="bm-dd-label">Probability</span>
                 <span class="bm-dd-value">All</span>
                 <i class="fa fa-caret-down bm-dd-arrow"></i>
             </button>
-            <ul class="bm-dd-menu" role="listbox"></ul>
+            <ul class="bm-dd-menu" role="listbox">
+                @foreach($probOptions as $idx => $pOpt)
+                    <li class="bm-dd-item {{ $idx === 0 ? 'active' : '' }}" role="option" data-value="{{ $pOpt['slug'] }}">
+                        {{ $pOpt['name'] }}
+                    </li>
+                @endforeach
+            </ul>
         </div>
 
         {{-- MIN. ODDS Dropdown --}}
         <div id="bm-dd-odds" class="bm-dd-wrap"
-             data-options='[{"name":"Any","slug":"0"},{"name":"> 1.20","slug":"1.20"},{"name":"> 1.30","slug":"1.30"},{"name":"> 1.40","slug":"1.40"},{"name":"> 1.50","slug":"1.50"},{"name":"> 1.60","slug":"1.60"},{"name":"> 1.70","slug":"1.70"},{"name":"> 1.80","slug":"1.80"},{"name":"> 1.90","slug":"1.90"},{"name":"> 2.00","slug":"2.00"}]'>
-            <button id="bm-dd-btn-odds" class="bm-dd-btn" type="button">
+             data-options='@json($oddsOptions)'>
+            <button id="bm-dd-btn-odds" class="bm-dd-btn" type="button" aria-haspopup="listbox">
                 <span class="bm-dd-label">Min. Odds</span>
                 <span class="bm-dd-value">Any</span>
                 <i class="fa fa-caret-down bm-dd-arrow"></i>
             </button>
-            <ul class="bm-dd-menu" role="listbox"></ul>
+            <ul class="bm-dd-menu" role="listbox">
+                @foreach($oddsOptions as $idx => $oOpt)
+                    <li class="bm-dd-item {{ $idx === 0 ? 'active' : '' }}" role="option" data-value="{{ $oOpt['slug'] }}">
+                        {{ $oOpt['name'] }}
+                    </li>
+                @endforeach
+            </ul>
         </div>
 
         {{-- Clear Filters Button --}}
@@ -109,14 +222,14 @@
 
     {{-- Date Navigation --}}
     <div class="bm-inline-date-nav">
-        <a href="{{ route($prevRoute, $prevParams) }}" class="bm-date-arrow" title="Previous day">
+        <a href="{{ route($prevRoute, $prevParams) }}" @if(!$prevIsToday) rel="nofollow" @endif class="bm-date-arrow" title="Previous day">
             <i class="fa fa-chevron-left"></i>
         </a>
         <button id="bm-date-picker-btn" class="bm-date-current" title="Select date">
             <i class="fa fa-calendar-o"></i>
             <span>{{ $formattedDate }}</span>
         </button>
-        <a href="{{ route($nextRoute, $nextParams) }}" class="bm-date-arrow" title="Next day">
+        <a href="{{ route($nextRoute, $nextParams) }}" @if(!$nextIsToday) rel="nofollow" @endif class="bm-date-arrow" title="Next day">
             <i class="fa fa-chevron-right"></i>
         </a>
     </div>
@@ -229,9 +342,27 @@
     white-space: nowrap;
 }
 
+.bm-dd-item.bm-dd-item-link {
+    padding: 0;
+}
+
+.bm-dd-item.bm-dd-item-link .bm-dd-link {
+    display: block;
+    padding: 8px 14px;
+    color: inherit;
+    text-decoration: none;
+    width: 100%;
+}
+
 .bm-dd-item:hover {
     background: #2a2a2a;
     color: #fff;
+}
+
+.bm-dd-item.bm-dd-item-link:hover .bm-dd-link,
+.bm-dd-item.bm-dd-item-link .bm-dd-link:hover {
+    color: #fff;
+    text-decoration: none;
 }
 
 .bm-dd-item.active {
@@ -555,11 +686,12 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Populate dropdowns from data-options
+    // Populate dropdowns from data-options (fallback if not pre-rendered)
     document.querySelectorAll('.bm-dd-wrap[data-options]').forEach(function(wrap) {
         var menu = wrap.querySelector('.bm-dd-menu');
+        if (!menu || menu.children.length > 0) return;
         var options = JSON.parse(wrap.getAttribute('data-options') || '[]');
-        if (!menu || !options.length) return;
+        if (!options.length) return;
         var activeFound = false;
         options.forEach(function(opt, idx) {
             var li = document.createElement('li');
@@ -608,6 +740,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Select item
         const items = menu.querySelectorAll('.bm-dd-item');
         items.forEach(function(item) {
+            const link = item.querySelector('a.bm-dd-link');
+            if (link) {
+                item.addEventListener('click', function(e) {
+                    if (e.target !== link && !link.contains(e.target)) {
+                        link.click();
+                    }
+                });
+                return;
+            }
+
             item.addEventListener('click', function(e) {
                 e.stopPropagation();
                 
@@ -1000,7 +1142,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     var marketItems = document.querySelectorAll('#bm-dd-markets .bm-dd-item');
                     marketItems.forEach(function(it) {
                         if (it.getAttribute('data-value') === marketVal) {
-                            it.click();
+                            var link = it.querySelector('a');
+                            if (link) {
+                                link.click();
+                            } else {
+                                it.click();
+                            }
                         }
                     });
                 } else {
@@ -1013,7 +1160,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (it === currentActive) currentIdx = i;
                     });
                     var nextIdx = (currentIdx + 1) % marketItems.length;
-                    marketItems[nextIdx].click();
+                    var link = marketItems[nextIdx].querySelector('a');
+                    if (link) {
+                        link.click();
+                    } else {
+                        marketItems[nextIdx].click();
+                    }
                 }
                 break;
             case 'sort':

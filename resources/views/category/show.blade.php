@@ -7,10 +7,11 @@
 @section('title', $metadata['page_title'] ?? ucwords(str_replace('-', ' ', $category)) . ' Predictions Today - ' . config('app.name'))
 @section('description', $metadata['page_description'] ?? 'Today\'s ' . ucwords(str_replace('-', ' ', $category)) . ' football predictions with expert analysis. Get accurate betting tips, odds and match statistics from ' . config('app.name') . '.')
 @section('keywords', $metadata['page_keywords'] ?? ucwords(str_replace('-', ' ', $category)) . ', football predictions, betting tips, today predictions')
+@section('robots', ($date ?? now()->format('Y-m-d')) === now()->format('Y-m-d') ? 'index, follow' : 'noindex, follow')
 
 @section('page-header')
     {{-- Category Hero Banner --}}
-    <x-category-hero :category="$category" :date="$date" :header="($metadata['page_subheader'] ?? '') . ', ' . $formattedDate" :subheader="$metadata['page_description'] ?? null" />
+    <x-category-hero :category="$category" :date="$date" :header="$metadata['page_subheader'] ?? (ucwords(str_replace('-', ' ', $category)) . ' Predictions Today')" :subheader="$metadata['page_description'] ?? null" />
 @endsection
 
 @section('content')
@@ -35,7 +36,7 @@
                 <div class="bm-league-header">
                     <i class="fa fa-star-o bm-star"></i>
                     <img src="{{ $prediction->league_logo ? url($prediction->league_logo) : asset('images/logo.png') }}"
-                        alt="Flag" style="max-height: 16px;">
+                        alt="{{ $prediction->league_name ?? 'League' }} logo" style="max-height: 16px;">
                     <span>{{ $prediction->league_country ?? 'International' }} - {{ $prediction->league_name }}</span>
                 </div>
             @endif

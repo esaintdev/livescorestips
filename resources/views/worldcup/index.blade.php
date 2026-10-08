@@ -43,7 +43,7 @@
                     <div class="bm-league-header">
                         <i class="fa fa-star-o bm-star" style="color: #ff6b00;"></i>
                         <img src="{{ $tip->league_logo ? url($tip->league_logo) : asset('images/logo.png') }}"
-                            alt="Flag" style="max-height: 16px;">
+                            alt="{{ $tip->league_name ?? 'League' }} logo" style="max-height: 16px;">
                         <span>{{ $tip->league_country ?? 'World' }} - {{ $tip->league_name }} 2026</span>
                     </div>
             @endif

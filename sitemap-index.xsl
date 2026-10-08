@@ -11,7 +11,7 @@
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <meta name="robots" content="noindex,follow"/>
                 <link rel="icon" type="image/png" href="/images/icon.png"/>
-                <title>XML Sitemap Index — LivescoresTips</title>
+                <title>XML Sitemap Index — LiveScores Tips</title>
                 <link rel="preconnect" href="https://fonts.googleapis.com"/>
                 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
                 <style>
@@ -111,7 +111,7 @@
                     <header>
                         <div class="accent"/>
                         <h1>XML Sitemap Index</h1>
-                        <p>Child sitemaps for LivescoresTips</p>
+                        <p>Child sitemaps for LiveScores Tips</p>
                     </header>
                     <div class="card">
                         <div class="meta">

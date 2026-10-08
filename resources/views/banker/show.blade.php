@@ -7,10 +7,11 @@
 @section('title', $metadata['page_title'] ?? 'Banker Predictions Today - ' . config('app.name'))
 @section('description', $metadata['page_description'] ?? 'Get today\'s safest banker predictions with expert analysis. High-confidence football betting tips carefully selected by our team at ' . config('app.name') . '.')
 @section('keywords', $metadata['page_keywords'] ?? 'banker predictions, banker tips, banker predictions today, football banker tips, safe predictions')
+@section('robots', ($date ?? now()->format('Y-m-d')) === now()->format('Y-m-d') ? 'index, follow' : 'noindex, follow')
 
 @section('page-header')
     <div class="bm-page-header">
-        <h1 class="bm-page-title">{{ $metadata['page_subheader'] ?? 'Banker Predictions Today' }}, {{ $formattedDate }}</h1>
+        <h1 class="bm-page-title">{{ $metadata['page_subheader'] ?? 'Banker Predictions Today' }}</h1>
         @if(isset($metadata['page_description']) && !empty($metadata['page_description']))
             <p class="bm-page-subheader">{{ $metadata['page_description'] }}</p>
         @endif
@@ -36,7 +37,7 @@
                 <div class="bm-league-header">
                     <i class="fa fa-star-o bm-star"></i>
                     <img src="{{ $prediction->league_logo ? url($prediction->league_logo) : asset('images/logo.png') }}"
-                        alt="Flag" style="max-height: 16px;">
+                        alt="{{ $prediction->league_name ?? 'League' }} logo" style="max-height: 16px;">
                     <span>{{ $prediction->league_country ?? 'International' }} - {{ $prediction->league_name }}</span>
                 </div>
             @endif

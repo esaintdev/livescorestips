@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<x-layout.head title="Recent Winnings - LiveScores Tips"
+<x-layout.head title="Recent Winnings - {{ config('app.name', 'LiveScores Tips') }}"
     description="View our recent winning predictions. Proof of our accuracy and expertise in football betting tips."
     keywords="winning predictions, past results, betting success" />
 

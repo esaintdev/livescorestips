@@ -5,22 +5,22 @@
 
     <link rel="canonical" href="{{ $canonical ?? url()->current() }}">
 
-    <title>{{ $title ?? 'LiveScores Tips | Football Predictions Today & Betting Tips' }}</title>
+    <title>{{ $title ?? config('app.name', 'LiveScores Tips') . ' | Football Predictions Today & Betting Tips' }}</title>
 
     <meta name="description"
-        content="{{ $description ?? 'Get today\'s football predictions, betting tips, live scores, fixtures, results, match analysis, BTTS tips, Over 2.5 goals and correct score tips.' }}">
+        content="{{ meta_description($description ?? 'Get today\'s football predictions, betting tips, live scores, fixtures, results, match analysis, BTTS tips, Over 2.5 goals and correct score tips.') }}">
 
     <meta name="keywords"
-        content="{{ $keywords ?? 'football predictions today, betting tips, football tips, LiveScores Tips, free football predictions, BTTS predictions, over 2.5 goals, correct score tips' }}">
+        content="{{ $keywords ?? 'football predictions today, betting tips, football tips, ' . config('app.name', 'LiveScores Tips') . ', free football predictions, BTTS predictions, over 2.5 goals, correct score tips' }}">
 
-    <meta name="author" content="LiveScores Tips">
+    <meta name="author" content="{{ config('app.name', 'LiveScores Tips') }}">
 
-    <meta property="og:site_name" content="LiveScores Tips">
+    <meta property="og:site_name" content="{{ config('app.name', 'LiveScores Tips') }}">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:type" content="{{ request()->path() === '/' ? 'website' : 'article' }}">
-    <meta property="og:title" content="{{ $ogTitle ?? ($title ?? 'LiveScores Tips | Football Predictions Today') }}">
+    <meta property="og:title" content="{{ $ogTitle ?? ($title ?? config('app.name', 'LiveScores Tips') . ' | Football Predictions Today') }}">
     <meta property="og:description"
-        content="{{ $ogDescription ?? ($description ?? 'Get today\'s football predictions, betting tips, live scores, fixtures, results and match analysis from LiveScores Tips.') }}">
+        content="{{ $ogDescription ?? ($description ?? 'Get today\'s football predictions, betting tips, live scores, fixtures, results and match analysis from ' . config('app.name', 'LiveScores Tips') . '.') }}">
     <meta property="og:image" content="{{ $ogImage ?? asset('images/icon.png') }}">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
@@ -30,11 +30,10 @@
     {!! json_encode([
         '@context' => 'https://schema.org',
         '@type' => 'WebSite',
-        'name' => 'LiveScores Tips',
+        'name' => config('app.name', 'LiveScores Tips'),
         'alternateName' => [
             'LiveScoresTips',
-            'Live Score Tips',
-            'Live Scores Tips'
+            'Live Scores Tips',
         ],
         'url' => url('/'),
         'description' => 'Free football predictions, betting tips, live scores, fixtures, results and match analysis.'
@@ -45,7 +44,7 @@
     {!! json_encode([
         '@context' => 'https://schema.org',
         '@type' => 'Organization',
-        'name' => 'LiveScores Tips',
+        'name' => config('app.name', 'LiveScores Tips'),
         'url' => url('/'),
         'logo' => asset('images/icon.png')
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
@@ -73,7 +72,7 @@
     <link rel="stylesheet" href="{{ asset('css/jsRapCalendar.css') }}">
     <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
     <link rel="stylesheet" href="{{ asset('css/dark-theme.css') }}?v=1.0">
-    <link rel="stylesheet" href="{{ asset('css/livescore-theme.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset_v('css/livescore-theme.css') }}">
 
     <script type="text/javascript">
         // Toggle text links visibility

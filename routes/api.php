@@ -19,6 +19,7 @@ Route::get('/fixtures/upcoming', [FixtureController::class, 'upcoming']);
 
 Route::get('/articles', [ArticleController::class, 'index']);
 Route::get('/articles/{slug}', [ArticleController::class, 'show']);
+Route::post('/articles', [ArticleController::class, 'store']);
 
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [AuthController::class, 'register']);

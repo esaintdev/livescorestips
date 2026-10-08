@@ -77,7 +77,7 @@
                     </div>
                     <div>
                         <div class="bm-contact-info-label">Email</div>
-                        <a href="mailto:marketing@livescorestips.com" class="bm-contact-info-value">marketing@livescorestips.com</a>
+                        <a href="mailto:livescorestips@gmail.com" class="bm-contact-info-value">livescorestips@gmail.com</a>
                     </div>
                 </div>
 

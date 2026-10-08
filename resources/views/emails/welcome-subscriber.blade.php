@@ -7,7 +7,7 @@
             Welcome to the Team! 🎯
         </h1>
         <p style="margin: 0 0 15px; color: #333333; font-size: 16px; line-height: 1.6;">
-            Thank you for subscribing to <strong>LiveScores Tips</strong>!
+            Thank you for subscribing to <strong>{{ config('app.name', 'LiveScores Tips') }}</strong>!
         </p>
         <p style="margin: 0; color: #666666; font-size: 15px; line-height: 1.6;">
             You've just joined thousands of smart bettors who receive daily free football prediction tips directly to their

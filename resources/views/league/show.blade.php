@@ -13,7 +13,7 @@
             </div>
             <div class="bm-league-text-group">
                 <div class="bm-league-country-row">
-                    <img src="{{ $league['flag'] ?? asset('images/default-flag.svg') }}" class="bm-country-flag-small">
+                    <img src="{{ $league['flag'] ?? asset('images/default-flag.svg') }}" alt="{{ $league['country'] ?? $league['name'] }} flag" class="bm-country-flag-small">
                     <span>{{ $league['country'] }}</span>
                 </div>
                 <h1 class="bm-league-title-main">{{ $league['name'] }}: predictions, odds, and results</h1>
@@ -53,7 +53,9 @@
 
         <div class="bm-match-list-grouped">
             @php
-                $allMatches = collect($results)->merge($upcoming)->sortBy('fixture.date');
+                $allMatches = collect($results)->merge($upcoming)
+                    ->filter(fn ($item) => !empty($item['fixture']['date']) && !empty($item['teams']))
+                    ->sortBy('fixture.date');
                 $grouped = $allMatches->groupBy(function($item) {
                     return \Carbon\Carbon::parse($item['fixture']['date'])->format('l / F j, Y');
                 });
@@ -123,28 +125,32 @@
                     </thead>
                     <tbody>
                         @foreach($standings as $row)
+                            @continue(empty($row['team']))
                             @php
+                                $rank = $row['rank'] ?? null;
                                 $rankClass = '';
-                                if ($row['rank'] <= 4) $rankClass = 'rank-cl';
-                                elseif ($row['rank'] == 5) $rankClass = 'rank-el';
-                                elseif ($row['rank'] >= 18) $rankClass = 'rank-rel';
+                                if ($rank !== null) {
+                                    if ($rank <= 4) $rankClass = 'rank-cl';
+                                    elseif ($rank == 5) $rankClass = 'rank-el';
+                                    elseif ($rank >= 18) $rankClass = 'rank-rel';
+                                }
                             @endphp
                             <tr>
                                 <td class="text-center">
-                                    <span class="bm-rank-indicator {{ $rankClass }}">{{ $row['rank'] }}</span>
+                                    <span class="bm-rank-indicator {{ $rankClass }}">{{ $rank ?? '-' }}</span>
                                 </td>
                                 <td>
                                     <div class="bm-rank-team">
-                                        <img src="{{ $row['team']['logo'] }}" class="bm-team-logo-tiny">
-                                        <span>{{ $row['team']['name'] }}</span>
+                                        <img src="{{ $row['team']['logo'] ?? '' }}" alt="{{ $row['team']['name'] ?? '' }} logo" class="bm-team-logo-tiny">
+                                        <span>{{ $row['team']['name'] ?? '' }}</span>
                                     </div>
                                 </td>
-                                <td class="text-center">{{ $row['all']['played'] }}</td>
-                                <td class="text-center">{{ $row['all']['win'] }}</td>
-                                <td class="text-center">{{ $row['all']['draw'] }}</td>
-                                <td class="text-center">{{ $row['all']['lose'] }}</td>
-                                <td class="text-center">{{ $row['all']['goals']['for'] }}:{{ $row['all']['goals']['against'] }}</td>
-                                <td class="text-center font-weight-bold">{{ $row['points'] }}</td>
+                                <td class="text-center">{{ $row['all']['played'] ?? '-' }}</td>
+                                <td class="text-center">{{ $row['all']['win'] ?? '-' }}</td>
+                                <td class="text-center">{{ $row['all']['draw'] ?? '-' }}</td>
+                                <td class="text-center">{{ $row['all']['lose'] ?? '-' }}</td>
+                                <td class="text-center">{{ ($row['all']['goals']['for'] ?? '-') }}:{{ ($row['all']['goals']['against'] ?? '-') }}</td>
+                                <td class="text-center font-weight-bold">{{ $row['points'] ?? '-' }}</td>
                             </tr>
                         @endforeach
                     </tbody>

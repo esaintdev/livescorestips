@@ -11,7 +11,7 @@ class MetadataSeeder extends Seeder
     {
         Metadata::updateOrCreate(
             ['route_name' => 'home', 'key' => 'header_intro'],
-            ['value' => 'Welcome to LiveScoresTips — your daily source for well-researched football predictions, match analysis, and betting tips across major leagues worldwide.']
+            ['value' => 'Welcome to LiveScores Tips — your daily source for well-researched football predictions, match analysis, and betting tips across major leagues worldwide.']
         );
     }
 }

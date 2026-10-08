@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SeoPage;
-use App\Models\Prediction;
 use App\Models\Article;
+use App\Models\Prediction;
+use App\Models\SeoPage;
+use App\Services\ApiFootballService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use App\Services\ApiFootballService;
 
 class SeoPageController extends Controller
 {
@@ -25,7 +25,9 @@ class SeoPageController extends Controller
             ->firstOrFail();
 
         // Standard Page Data Logic (Mirrors HomeController)
-        if (!$date) $date = $request->input('date', now()->format('Y-m-d'));
+        if (! $date) {
+            $date = $request->input('date', now()->format('Y-m-d'));
+        }
         $isLive = $request->has('live');
 
         // Generate date range (Yesterday to +5 days)
@@ -37,7 +39,7 @@ class SeoPageController extends Controller
                 'date' => $current->format('Y-m-d'),
                 'day' => $current->format('d'),
                 'is_today' => $current->isToday(),
-                'label' => $current->isToday() ? 'TODAY' : $current->format('D')
+                'label' => $current->isToday() ? 'TODAY' : $current->format('D'),
             ];
         }
 
@@ -77,6 +79,9 @@ class SeoPageController extends Controller
             'page_keywords' => $seoPage->meta_keywords,
         ];
 
+        // Dated variants canonicalise to the base SEO page.
+        $canonical = route('seo.show', $seoPage->slug);
+
         return view('seo-pages.show', compact(
             'seoPage',
             'predictions',
@@ -86,7 +91,8 @@ class SeoPageController extends Controller
             'date',
             'dateRange',
             'isLive',
-            'liveCount'
+            'liveCount',
+            'canonical'
         ));
     }
 }

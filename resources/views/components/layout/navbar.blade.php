@@ -31,17 +31,32 @@
             <div class="bm-nav-dropdown-menu">
                 <a href="{{ route('banker.show') }}" class="bm-nav-dropdown-item {{ request()->routeIs('banker.*') ? 'active' : '' }}">Banker Tips</a>
                 <div class="bm-nav-dropdown-divider"></div>
+                @if(in_array('over-2-5-goals', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'over-2-5-goals') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'over-2-5-goals' ? 'active' : '' }}">Over 2.5 Goals</a>
+                @endif
+                @if(in_array('over-1-5-goals', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'over-1-5-goals') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'over-1-5-goals' ? 'active' : '' }}">Over 1.5 Goals</a>
+                @endif
+                @if(in_array('btts-gg', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'btts-gg') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'btts-gg' ? 'active' : '' }}">BTTS/GG</a>
+                @endif
+                @if(in_array('double-chance', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'double-chance') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'double-chance' ? 'active' : '' }}">Double Chance</a>
+                @endif
+                @if(in_array('draws', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'draws') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'draws' ? 'active' : '' }}">Draws</a>
+                @endif
+                @if(in_array('home-wins', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'home-wins') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'home-wins' ? 'active' : '' }}">Home Wins</a>
+                @endif
+                @if(in_array('away-wins', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'away-wins') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'away-wins' ? 'active' : '' }}">Away Wins</a>
+                @endif
+                @if(in_array('correct-score', $activeCategorySlugs ?? []))
                 <a href="{{ route('category.show', 'correct-score') }}" class="bm-nav-dropdown-item {{ request()->route('categorySlug') === 'correct-score' ? 'active' : '' }}">Correct Score</a>
+                @endif
             </div>
         </div>
-        <a href="{{ route('worldcup.index') }}" class="bm-nav-link {{ request()->routeIs('worldcup.*') ? 'active' : '' }}" style="color: #ff6b00;">FIFA World Cup 2026</a>
     </nav>
     <div class="bm-top-links">
         <a href="{{ route('vip.index') }}" class="bm-premium-btn">

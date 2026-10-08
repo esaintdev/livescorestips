@@ -5,12 +5,13 @@
 @endphp
 
 @section('title', $metadata['page_title'] ?? config('app.name', 'LiveScores Tips') . ' - Football Predictions & Betting Tips')
-@section('description', $metadata['page_description'] ?? 'LiveScores Tips provides well-researched football statistics, analysis and free football predictions. Start winning now.')
+@section('description', $metadata['page_description'] ?? config('app.name', 'LiveScores Tips') . ' provides well-researched football statistics, analysis and free football predictions. Start winning now.')
 @section('keywords', $metadata['page_keywords'] ?? 'best prediction site, Betting Tips, Football Predictions, Live Score, free football predictions, 100 sure prediction, accurate football predictions')
+@section('robots', ($date ?? now()->format('Y-m-d')) === now()->format('Y-m-d') ? 'index, follow' : 'noindex, follow')
 
 @section('page-header')
     <h1 class="bm-page-title">
-        {{ $metadata['page_subheader'] ?? '' }}, {{ $formattedDate }}
+        {{ $metadata['page_subheader'] ?? '' }}
     </h1>
     @if(isset($metadata['page_description']) && !empty($metadata['page_description']))
         <p class="bm-page-subheader">
@@ -43,14 +44,14 @@
         $mobileFormatted = \Carbon\Carbon::parse($date)->format('d-m-Y');
     @endphp
     <div class="bm-mobile-date-nav">
-        <a href="{{ route('home.date', ['date' => $mobilePrevDate]) }}" class="bm-date-arrow" title="Previous day">
+        <a href="{{ route('home.date', ['date' => $mobilePrevDate]) }}" rel="nofollow" class="bm-date-arrow" title="Previous day">
             <i class="fa fa-chevron-left"></i>
         </a>
         <button class="bm-date-current" title="Select date" onclick="document.getElementById('bm-date-picker-btn')?.click();">
             <i class="fa fa-calendar-o"></i>
             <span>{{ $mobileFormatted }}</span>
         </button>
-        <a href="{{ route('home.date', ['date' => $mobileNextDate]) }}" class="bm-date-arrow" title="Next day">
+        <a href="{{ route('home.date', ['date' => $mobileNextDate]) }}" rel="nofollow" class="bm-date-arrow" title="Next day">
             <i class="fa fa-chevron-right"></i>
         </a>
     </div>
@@ -87,7 +88,7 @@
                 <div class="bm-match-group" data-league="{{ $tip->league_name }}">
                     <div class="bm-league-header">
                         <i class="fa fa-star-o bm-star"></i>
-                        <img src="{{ $tip->league_logo ? url($tip->league_logo) : asset('images/logo.png') }}" alt="Flag"
+                        <img src="{{ $tip->league_logo ? url($tip->league_logo) : asset('images/logo.png') }}" alt="{{ $tip->league_name ?? 'League' }} logo"
                             style="max-height: 16px;">
                         <span>{{ $tip->league_country ?? 'Europe' }} - {{ $tip->league_name }}</span>
                     </div>
@@ -182,7 +183,7 @@
                         <div class="bm-match-group" data-league="{{ $prediction->league_name }}">
                             <div class="bm-league-header">
                                 <i class="fa fa-star-o bm-star"></i>
-                                <img src="{{ $prediction->league_logo ? url($prediction->league_logo) : asset('images/logo.png') }}" alt="Flag" style="max-height: 16px;">
+                                <img src="{{ $prediction->league_logo ? url($prediction->league_logo) : asset('images/logo.png') }}" alt="{{ $prediction->league_name ?? 'League' }} logo" style="max-height: 16px;">
                                 <span>{{ $prediction->league_country ?? 'International' }} - {{ $prediction->league_name }}</span>
                             </div>
                     @endif
@@ -264,7 +265,7 @@
                         <div class="bm-match-group" data-league="{{ $fixture->league_name }}">
                             <div class="bm-league-header">
                                 <i class="fa fa-star-o bm-star"></i>
-                                <img src="{{ $fixture->league_logo ? url($fixture->league_logo) : asset('images/logo.png') }}" alt="Flag"
+                                <img src="{{ $fixture->league_logo ? url($fixture->league_logo) : asset('images/logo.png') }}" alt="{{ $fixture->league_name ?? 'League' }} logo"
                                     style="max-height: 16px;">
                                 <span>{{ $fixture->league_country ?? 'Europe' }} - {{ $fixture->league_name }}</span>
                             </div>

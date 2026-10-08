@@ -2,20 +2,25 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
+use App\Models\Setting;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ApiFootballService
 {
     protected $apiKey;
+
     protected $apiHost;
+
     protected $baseUrl;
 
     public function __construct()
     {
         $this->apiKey = config('services.api_football.key');
         $this->apiHost = config('services.api_football.host');
-        $this->baseUrl = 'https://' . $this->apiHost;
+        $this->baseUrl = 'https://'.$this->apiHost;
     }
 
     /**
@@ -41,12 +46,12 @@ class ApiFootballService
      */
     public function fetchFixtures($date, $leagueId = null)
     {
-        $cacheKey = "fixtures_{$date}" . ($leagueId ? "_{$leagueId}" : '');
+        $cacheKey = "fixtures_{$date}".($leagueId ? "_{$leagueId}" : '');
 
         return Cache::remember($cacheKey, 3600, function () use ($date, $leagueId) {
             $isMonth = strlen($date) === 7; // format "YYYY-MM"
-            $dateObj = \Carbon\Carbon::parse($isMonth ? $date . '-01' : $date);
-            
+            $dateObj = Carbon::parse($isMonth ? $date.'-01' : $date);
+
             // Determine season based on the SEARCHED DATE (not today)
             // Club leagues run Aug–May, so before June we use the prior year as season.
             // International tournaments (World Cup, Euros) run in summer and use the current calendar year.
@@ -57,8 +62,8 @@ class ApiFootballService
             ];
 
             if ($isMonth) {
-                if (!$leagueId) {
-                    throw new \Exception("League is required when searching by month.");
+                if (! $leagueId) {
+                    throw new \Exception('League is required when searching by month.');
                 }
                 $params['from'] = $dateObj->copy()->startOfMonth()->format('Y-m-d');
                 $params['to'] = $dateObj->copy()->endOfMonth()->format('Y-m-d');
@@ -74,14 +79,14 @@ class ApiFootballService
             $response = Http::timeout(60)
                 ->retry(2, 100)
                 ->withHeaders($this->getHeaders())
-                ->get($this->baseUrl . '/fixtures', $params);
+                ->get($this->baseUrl.'/fixtures', $params);
 
             if ($response->successful()) {
                 $data = $response->json()['response'] ?? [];
 
                 // Don't cache empty results — always retry on next request
                 if (empty($data)) {
-                    Cache::forget("fixtures_{$date}" . ($leagueId ? "_{$leagueId}" : ''));
+                    Cache::forget("fixtures_{$date}".($leagueId ? "_{$leagueId}" : ''));
                 }
 
                 return $data;
@@ -97,16 +102,16 @@ class ApiFootballService
     public function fetchFixturesByRange($startDate, $endDate, array $leagueIds = [])
     {
         $allFixtures = [];
-        $currentDate = \Carbon\Carbon::parse($startDate);
-        $end = \Carbon\Carbon::parse($endDate);
+        $currentDate = Carbon::parse($startDate);
+        $end = Carbon::parse($endDate);
 
         while ($currentDate->lte($end)) {
             $dateStr = $currentDate->format('Y-m-d');
 
-            // If specific leagues are requested, we iterate them. 
+            // If specific leagues are requested, we iterate them.
             // Optimizing: The API supports one league per call or all leagues per date.
-            // If we have a small list of leagues, it's better to filter AFTER fetching all for that date 
-            // OR make separate calls if the list is very small. 
+            // If we have a small list of leagues, it's better to filter AFTER fetching all for that date
+            // OR make separate calls if the list is very small.
             // Given "Top Leagues" are about 8-10, making 10 calls per day might be heavy.
             // Better strategy: Fetch ALL fixtures for the date, then filter in PHP.
 
@@ -114,7 +119,7 @@ class ApiFootballService
 
             foreach ($fixtures as $fixture) {
                 // Filter by league if specified
-                if (!empty($leagueIds) && !in_array($fixture['league']['id'], $leagueIds)) {
+                if (! empty($leagueIds) && ! in_array($fixture['league']['id'], $leagueIds)) {
                     continue;
                 }
 
@@ -132,7 +137,7 @@ class ApiFootballService
      */
     public function fetchOdds($fixtureId, $bookmaker = null)
     {
-        $cacheKey = "odds_{$fixtureId}" . ($bookmaker ? "_{$bookmaker}" : '');
+        $cacheKey = "odds_{$fixtureId}".($bookmaker ? "_{$bookmaker}" : '');
 
         return Cache::remember($cacheKey, 3600, function () use ($fixtureId, $bookmaker) {
             $params = ['fixture' => $fixtureId];
@@ -141,7 +146,7 @@ class ApiFootballService
             }
 
             $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
-                ->get($this->baseUrl . '/odds', $params);
+                ->get($this->baseUrl.'/odds', $params);
 
             if ($response->successful()) {
                 return $response->json()['response'] ?? [];
@@ -165,10 +170,10 @@ class ApiFootballService
 
             do {
                 $response = Http::timeout(60)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/odds', [
+                    ->get($this->baseUrl.'/odds', [
                         'date' => $date,
                         'bookmaker' => $bookmakerId,
-                        'page' => $page
+                        'page' => $page,
                     ]);
 
                 if ($response->successful()) {
@@ -194,8 +199,8 @@ class ApiFootballService
 
         return Cache::remember($cacheKey, 3600, function () use ($fixtureId) {
             $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
-                ->get($this->baseUrl . '/odds', [
-                    'fixture' => $fixtureId
+                ->get($this->baseUrl.'/odds', [
+                    'fixture' => $fixtureId,
                 ]);
 
             if ($response->successful()) {
@@ -226,13 +231,13 @@ class ApiFootballService
 
             foreach (array_unique($seasons) as $season) {
                 $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/fixtures', [
+                    ->get($this->baseUrl.'/fixtures', [
                         'team' => $teamId,
                         'last' => $last,
                         'season' => $season,
                     ]);
 
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     continue;
                 }
 
@@ -240,14 +245,14 @@ class ApiFootballService
 
                 foreach ($seasonFixtures as $fixture) {
                     $id = $fixture['fixture']['id'] ?? null;
-                    if ($id && !isset($seen[$id])) {
+                    if ($id && ! isset($seen[$id])) {
                         $seen[$id] = true;
                         $fixtures[] = $fixture;
                     }
                 }
             }
 
-            if (!empty($fixtures)) {
+            if (! empty($fixtures)) {
                 usort($fixtures, function ($a, $b) {
                     return strtotime($b['fixture']['date'] ?? '0') <=> strtotime($a['fixture']['date'] ?? '0');
                 });
@@ -275,25 +280,27 @@ class ApiFootballService
 
             foreach (array_unique($seasons) as $season) {
                 $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/fixtures', [
+                    ->get($this->baseUrl.'/fixtures', [
                         'team' => $teamId,
                         'last' => $last,
                         'season' => $season,
                     ]);
 
-                if (!$response->successful()) continue;
+                if (! $response->successful()) {
+                    continue;
+                }
 
                 $seasonFixtures = $response->json()['response'] ?? [];
                 foreach ($seasonFixtures as $fixture) {
                     $id = $fixture['fixture']['id'] ?? null;
-                    if ($id && !isset($seen[$id])) {
+                    if ($id && ! isset($seen[$id])) {
                         $seen[$id] = true;
                         $fixtures[] = $fixture;
                     }
                 }
             }
 
-            if (!empty($fixtures)) {
+            if (! empty($fixtures)) {
                 usort($fixtures, function ($a, $b) {
                     return strtotime($b['fixture']['date'] ?? '0') <=> strtotime($a['fixture']['date'] ?? '0');
                 });
@@ -308,8 +315,8 @@ class ApiFootballService
 
             foreach ($fixtures as $fixture) {
                 $homeId = $fixture['teams']['home']['id'];
-                $homeGoals = (int)($fixture['goals']['home'] ?? 0);
-                $awayGoals = (int)($fixture['goals']['away'] ?? 0);
+                $homeGoals = (int) ($fixture['goals']['home'] ?? 0);
+                $awayGoals = (int) ($fixture['goals']['away'] ?? 0);
                 $totalGoals += $homeGoals + $awayGoals;
 
                 if ($homeId == $teamId) {
@@ -391,13 +398,13 @@ class ApiFootballService
     {
         $cacheKey = "fixture_details_{$fixtureId}";
 
-        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        $cached = Cache::get($cacheKey);
         if ($cached !== null) {
             return $cached;
         }
 
         $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
-            ->get($this->baseUrl . '/fixtures', [
+            ->get($this->baseUrl.'/fixtures', [
                 'id' => $fixtureId,
             ]);
 
@@ -412,8 +419,9 @@ class ApiFootballService
                 // 60 seconds if live, 3600 seconds (1 hour) otherwise to save API quota
                 $ttl = $isLive ? 60 : 3600;
 
-                \Illuminate\Support\Facades\Cache::put($cacheKey, $fixture, $ttl);
+                Cache::put($cacheKey, $fixture, $ttl);
             }
+
             return $fixture;
         }
 
@@ -429,7 +437,7 @@ class ApiFootballService
 
         return Cache::remember($cacheKey, 3600, function () use ($team1Id, $team2Id, $last) {
             $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
-                ->get($this->baseUrl . '/fixtures/headtohead', [
+                ->get($this->baseUrl.'/fixtures/headtohead', [
                     'h2h' => "{$team1Id}-{$team2Id}",
                     'last' => $last,
                 ]);
@@ -447,27 +455,37 @@ class ApiFootballService
      */
     public function fetchLeagueStandings($leagueId, $season, $returnAllGroups = false)
     {
-        $cacheKey = "standings_v2_{$leagueId}_{$season}";
+        // The FULL set of groups is always cached, so every caller receives a
+        // consistent shape regardless of $returnAllGroups. (Previously the
+        // cached value depended on the flag while sharing one cache key, which
+        // made the league page receive all-groups and crash on $row['rank'].)
+        $cacheKey = "standings_v3_{$leagueId}_{$season}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($leagueId, $season, $returnAllGroups) {
+        $allGroups = Cache::get($cacheKey);
+
+        if ($allGroups === null) {
+            $allGroups = [];
+
             try {
                 $response = Http::timeout(5)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/standings', [
+                    ->get($this->baseUrl.'/standings', [
                         'league' => $leagueId,
                         'season' => $season,
                     ]);
 
                 if ($response->successful()) {
                     $data = $response->json()['response'] ?? [];
-                    $standings = $data[0]['league']['standings'] ?? [];
-                    return $returnAllGroups ? $standings : ($standings[0] ?? []);
+                    $allGroups = $data[0]['league']['standings'] ?? [];
                 }
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::warning('API Football Standings Timeout: ' . $e->getMessage());
+                Log::warning('API Football Standings Timeout: '.$e->getMessage());
             }
 
-            return [];
-        });
+            // Cache real data for 6h; do not cache empty/failed responses for long.
+            Cache::put($cacheKey, $allGroups, empty($allGroups) ? 300 : 21600);
+        }
+
+        return $returnAllGroups ? $allGroups : ($allGroups[0] ?? []);
     }
 
     /**
@@ -477,10 +495,10 @@ class ApiFootballService
     {
         $cacheKey = "team_stats_{$teamId}_{$leagueId}_{$season}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($teamId, $leagueId, $season) {
+        return Cache::remember($cacheKey, 21600, function () use ($teamId, $leagueId, $season) {
             try {
                 $response = Http::timeout(5)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/teams/statistics', [
+                    ->get($this->baseUrl.'/teams/statistics', [
                         'team' => $teamId,
                         'league' => $leagueId,
                         'season' => $season,
@@ -488,10 +506,11 @@ class ApiFootballService
 
                 if ($response->successful()) {
                     $data = $response->json()['response'] ?? null;
+
                     return $data;
                 }
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::warning('API Football Team Stats Timeout: ' . $e->getMessage());
+                Log::warning('API Football Team Stats Timeout: '.$e->getMessage());
             }
 
             return null;
@@ -508,13 +527,13 @@ class ApiFootballService
         return Cache::remember($cacheKey, 60, function () { // Cache for 60 seconds
             try {
                 $response = Http::timeout(5)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/fixtures', ['live' => 'all']);
+                    ->get($this->baseUrl.'/fixtures', ['live' => 'all']);
 
                 if ($response->successful()) {
                     return $response->json()['response'] ?? [];
                 }
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::warning('API Football Live Fixtures Timeout: ' . $e->getMessage());
+                Log::warning('API Football Live Fixtures Timeout: '.$e->getMessage());
             }
 
             return [];
@@ -527,6 +546,7 @@ class ApiFootballService
     public function fetchLiveFixturesCount()
     {
         $liveFixtures = $this->fetchLiveFixtures();
+
         return count($liveFixtures);
     }
 
@@ -537,20 +557,20 @@ class ApiFootballService
     {
         $cacheKey = "league_results_{$leagueId}_{$count}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($leagueId, $count) {
+        return Cache::remember($cacheKey, 7200, function () use ($leagueId, $count) {
             try {
                 $response = Http::timeout(5)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/fixtures', [
+                    ->get($this->baseUrl.'/fixtures', [
                         'league' => $leagueId,
                         'last' => $count,
-                        'status' => 'FT-AET-PEN' // Finished matches
+                        'status' => 'FT-AET-PEN', // Finished matches
                     ]);
 
                 if ($response->successful()) {
                     return $response->json()['response'] ?? [];
                 }
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::warning('API Football League Results Timeout: ' . $e->getMessage());
+                Log::warning('API Football League Results Timeout: '.$e->getMessage());
             }
 
             return [];
@@ -564,19 +584,19 @@ class ApiFootballService
     {
         $cacheKey = "league_fixtures_upcoming_{$leagueId}_{$count}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($leagueId, $count) {
+        return Cache::remember($cacheKey, 7200, function () use ($leagueId, $count) {
             try {
                 $response = Http::timeout(5)->withHeaders($this->getHeaders())
-                    ->get($this->baseUrl . '/fixtures', [
+                    ->get($this->baseUrl.'/fixtures', [
                         'league' => $leagueId,
-                        'next' => $count
+                        'next' => $count,
                     ]);
 
                 if ($response->successful()) {
                     return $response->json()['response'] ?? [];
                 }
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::warning('API Football League Upcoming Fixtures Timeout: ' . $e->getMessage());
+                Log::warning('API Football League Upcoming Fixtures Timeout: '.$e->getMessage());
             }
 
             return [];
@@ -597,21 +617,22 @@ class ApiFootballService
 
         // Fallback: fetch from API if not in popular list
         $cacheKey = "league_info_{$leagueId}";
+
         return Cache::remember($cacheKey, 86400, function () use ($leagueId) {
             $response = Http::withHeaders($this->getHeaders())
-                ->get($this->baseUrl . '/leagues', [
-                    'id' => $leagueId
+                ->get($this->baseUrl.'/leagues', [
+                    'id' => $leagueId,
                 ]);
 
             if ($response->successful()) {
                 $data = $response->json()['response'] ?? [];
-                if (!empty($data)) {
+                if (! empty($data)) {
                     return [
                         'id' => $data[0]['league']['id'],
                         'name' => $data[0]['league']['name'],
                         'country' => $data[0]['country']['name'],
                         'logo' => $data[0]['league']['logo'] ?? null,
-                        'flag' => $data[0]['country']['flag'] ?? null
+                        'flag' => $data[0]['country']['flag'] ?? null,
                     ];
                 }
             }
@@ -630,19 +651,20 @@ class ApiFootballService
         // Only use cache if it exists; otherwise fetch and manually put it in cache if valid
         if (Cache::has($cacheKey)) {
             $cached = Cache::get($cacheKey);
-            if (!empty($cached)) {
+            if (! empty($cached)) {
                 return $cached;
             }
         }
 
         $response = Http::timeout(15)->retry(2, 100)->withHeaders($this->getHeaders())
-            ->get($this->baseUrl . '/leagues');
+            ->get($this->baseUrl.'/leagues');
 
         if ($response->successful()) {
             $data = $response->json()['response'] ?? [];
-            if (!empty($data)) {
+            if (! empty($data)) {
                 // Only cache if we actually got data
                 Cache::put($cacheKey, $data, 86400); // 24 hours
+
                 return $data;
             }
         }
@@ -660,19 +682,20 @@ class ApiFootballService
         // Only use cache if it exists; otherwise fetch and manually put it in cache if valid
         if (Cache::has($cacheKey)) {
             $cached = Cache::get($cacheKey);
-            if (!empty($cached)) {
+            if (! empty($cached)) {
                 return $cached;
             }
         }
 
         $response = Http::timeout(15)->retry(2, 100)->withHeaders($this->getHeaders())
-            ->get($this->baseUrl . '/countries');
+            ->get($this->baseUrl.'/countries');
 
         if ($response->successful()) {
             $data = $response->json()['response'] ?? [];
-            if (!empty($data)) {
+            if (! empty($data)) {
                 // Only cache if we actually got data
                 Cache::put($cacheKey, $data, 86400); // 24 hours
+
                 return $data;
             }
         }
@@ -689,7 +712,6 @@ class ApiFootballService
     {
         // Hardcoded base list with full metadata (name, slug, logo, flag)
         $baseLeagues = [
-            ['id' => 1,   'name' => 'World Cup',         'slug' => 'world-cup',         'country' => 'World',   'logo' => 'https://upload.wikimedia.org/wikipedia/en/thumb/1/17/2026_FIFA_World_Cup_emblem.svg/330px-2026_FIFA_World_Cup_emblem.svg.png'],
             ['id' => 4,   'name' => 'Euro Championship', 'slug' => 'euro-championship', 'country' => 'World',   'logo' => 'https://media.api-sports.io/football/leagues/4.png'],
             ['id' => 6,   'name' => 'Africa Cup of Nations', 'slug' => 'afcon',          'country' => 'World',   'logo' => 'https://media.api-sports.io/football/leagues/6.png'],
             ['id' => 9,   'name' => 'Copa America',      'slug' => 'copa-america',      'country' => 'World',   'logo' => 'https://media.api-sports.io/football/leagues/9.png'],
@@ -698,8 +720,8 @@ class ApiFootballService
             ['id' => 78,  'name' => 'Bundesliga',        'slug' => 'bundesliga',        'country' => 'Germany', 'logo' => 'https://media.api-sports.io/football/leagues/78.png',  'flag' => 'https://media.api-sports.io/flags/de.svg'],
             ['id' => 135, 'name' => 'Serie A',           'slug' => 'serie-a',           'country' => 'Italy',   'logo' => 'https://media.api-sports.io/football/leagues/135.png', 'flag' => 'https://media.api-sports.io/flags/it.svg'],
             ['id' => 61,  'name' => 'Ligue 1',           'slug' => 'ligue-1',           'country' => 'France',  'logo' => 'https://media.api-sports.io/football/leagues/61.png',  'flag' => 'https://media.api-sports.io/flags/fr.svg'],
-            ['id' => 94,  'name' => 'Primeira Liga',     'slug' => 'primeira-liga',     'country' => 'Portugal','logo' => 'https://media.api-sports.io/football/leagues/94.png',  'flag' => 'https://media.api-sports.io/flags/pt.svg'],
-            ['id' => 88,  'name' => 'Eredivisie',        'slug' => 'eredivisie',        'country' => 'Netherlands','logo' => 'https://media.api-sports.io/football/leagues/88.png','flag' => 'https://media.api-sports.io/flags/nl.svg'],
+            ['id' => 94,  'name' => 'Primeira Liga',     'slug' => 'primeira-liga',     'country' => 'Portugal', 'logo' => 'https://media.api-sports.io/football/leagues/94.png',  'flag' => 'https://media.api-sports.io/flags/pt.svg'],
+            ['id' => 88,  'name' => 'Eredivisie',        'slug' => 'eredivisie',        'country' => 'Netherlands', 'logo' => 'https://media.api-sports.io/football/leagues/88.png', 'flag' => 'https://media.api-sports.io/flags/nl.svg'],
             ['id' => 2,   'name' => 'Champions League',  'slug' => 'champions-league',  'country' => 'World',   'logo' => 'https://media.api-sports.io/football/leagues/2.png'],
             ['id' => 3,   'name' => 'Europa League',     'slug' => 'europa-league',     'country' => 'World',   'logo' => 'https://media.api-sports.io/football/leagues/3.png'],
             ['id' => 848, 'name' => 'Conference League', 'slug' => 'conference-league', 'country' => 'World',   'logo' => 'https://media.api-sports.io/football/leagues/848.png'],
@@ -710,18 +732,18 @@ class ApiFootballService
 
         // Merge any extra IDs the admin added via Settings that are NOT already in the base list
         try {
-            $prioritySetting = \App\Models\Setting::get('priority_leagues', '');
+            $prioritySetting = Setting::get('priority_leagues', '');
             if ($prioritySetting) {
                 $adminIds = array_map('intval', array_filter(array_map('trim', explode(',', $prioritySetting))));
                 foreach ($adminIds as $adminId) {
-                    if (!in_array($adminId, $baseIds)) {
+                    if (! in_array($adminId, $baseIds)) {
                         // Unknown league — add a placeholder; name will show on fixture search results
                         $baseLeagues[] = [
-                            'id'      => $adminId,
-                            'name'    => "League #$adminId",
-                            'slug'    => "league-$adminId",
+                            'id' => $adminId,
+                            'name' => "League #$adminId",
+                            'slug' => "league-$adminId",
                             'country' => 'World',
-                            'logo'    => "https://media.api-sports.io/football/leagues/{$adminId}.png",
+                            'logo' => "https://media.api-sports.io/football/leagues/{$adminId}.png",
                         ];
                         $baseIds[] = $adminId;
                     }

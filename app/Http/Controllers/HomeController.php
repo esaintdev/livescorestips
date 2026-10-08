@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Pagination\LengthAwarePaginator;
 use App\Models\Article;
+use App\Models\Metadata;
 use App\Models\Prediction;
 use App\Services\ApiFootballService;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 
 class HomeController extends Controller
 {
@@ -27,7 +30,7 @@ class HomeController extends Controller
                 'La Liga' => 140,
                 'Bundesliga' => 78,
                 'Serie A' => 135,
-                'Ligue 1' => 61
+                'Ligue 1' => 61,
             ];
 
             $standings = [];
@@ -47,7 +50,9 @@ class HomeController extends Controller
     public function index(Request $request, $date = null)
     {
         // Get date from request or default to today
-        if (!$date) $date = $request->input('date', now()->format('Y-m-d'));
+        if (! $date) {
+            $date = $request->input('date', now()->format('Y-m-d'));
+        }
         $isLive = $request->has('live');
 
         // Generate date range (Yesterday to +5 days)
@@ -59,7 +64,7 @@ class HomeController extends Controller
                 'date' => $current->format('Y-m-d'),
                 'day' => $current->format('d'),
                 'is_today' => $current->isToday(),
-                'label' => $current->isToday() ? 'TODAY' : $current->format('D')
+                'label' => $current->isToday() ? 'TODAY' : $current->format('D'),
             ];
         }
 
@@ -70,7 +75,7 @@ class HomeController extends Controller
 
         // Fetch ALL predictions for the displayed date (including Auto-generated)
         $query = Prediction::query();
-        
+
         if ($isLive) {
             $query->liveWindow();
         } else {
@@ -81,7 +86,7 @@ class HomeController extends Controller
             ->sort(function ($a, $b) {
                 return $this->comparePredictions($a, $b);
             })->unique(function ($item) {
-                return $item->fixture_id ?: 'manual_' . $item->id;
+                return $item->fixture_id ?: 'manual_'.$item->id;
             })->values()->take(15);
 
         $allPredictions = $this->mapLiveScores($allPredictions, $date);
@@ -96,7 +101,7 @@ class HomeController extends Controller
             'Home Win' => 'home-wins',
             'Away Win' => 'away-wins',
             'Correct Score' => 'correct-score',
-            'Under 2.5 Goals' => 'over-2-5-goals', 
+            'Under 2.5 Goals' => 'over-2-5-goals',
         ];
 
         $selectedMarketSlug = $request->input('market');
@@ -149,7 +154,7 @@ class HomeController extends Controller
             ->values();
         $page = request()->get('page', 1);
         $perPage = 10;
-        $upcomingFixtures = new \Illuminate\Pagination\LengthAwarePaginator(
+        $upcomingFixtures = new LengthAwarePaginator(
             $allUpcoming->forPage($page, $perPage),
             $allUpcoming->count(),
             $perPage,
@@ -166,7 +171,7 @@ class HomeController extends Controller
         });
 
         $leagueStandings = $this->getLeagueStandings();
-        $metadata = \App\Models\Metadata::where('route_name', 'home')->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'home')->pluck('value', 'key');
 
         $marketFilters = collect([
             ['name' => 'Tips', 'slug' => null, 'active' => ($selectedMarketSlug === null)],
@@ -180,12 +185,12 @@ class HomeController extends Controller
         ]);
 
         $availableCategories = $allPredictions->pluck('category')->unique();
-        
+
         // Add others that have data for this day
         foreach ($availableCategories as $cat) {
             if (isset($categoryToSlugMap[$cat])) {
                 $slug = $categoryToSlugMap[$cat];
-                if (!$marketFilters->contains('slug', $slug)) {
+                if (! $marketFilters->contains('slug', $slug)) {
                     $marketFilters->push(['name' => $cat, 'slug' => $slug, 'active' => ($selectedMarketSlug === $slug)]);
                 }
             }
@@ -202,20 +207,25 @@ class HomeController extends Controller
                 return $this->comparePredictions($a, $b);
             });
 
+        // Dated archive URLs (/home/{date}) canonicalise to the base homepage so
+        // they never compete with / as duplicate content.
+        $canonical = route('home');
+
         return view('home', compact(
-            'predictions', 
-            'todaysTips', 
-            'latestArticles', 
-            'upcomingFixtures', 
-            'recentWinnings', 
-            'date', 
+            'predictions',
+            'todaysTips',
+            'latestArticles',
+            'upcomingFixtures',
+            'recentWinnings',
+            'date',
             'dateRange',
             'isLive',
             'liveCount',
-            'leagueStandings', 
+            'leagueStandings',
             'metadata',
             'marketFilters',
-            'bankerPredictions'
+            'bankerPredictions',
+            'canonical'
         ));
     }
 
@@ -235,18 +245,20 @@ class HomeController extends Controller
 
         $category = $categoryMap[$categorySlug] ?? null;
 
-        if (!$category) {
+        if (! $category) {
             abort(404);
         }
 
         // Get date from request or default to today
-        if (!$date) $date = $request->input('date', now()->format('Y-m-d'));
+        if (! $date) {
+            $date = $request->input('date', now()->format('Y-m-d'));
+        }
 
         $isLive = $request->has('live');
 
         // Calculate previous and next dates
-        $previousDate = \Carbon\Carbon::parse($date)->subDay()->format('Y-m-d');
-        $nextDate = \Carbon\Carbon::parse($date)->addDay()->format('Y-m-d');
+        $previousDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+        $nextDate = Carbon::parse($date)->addDay()->format('Y-m-d');
 
         $predictions = Prediction::query()
             ->where('category', $category);
@@ -258,35 +270,54 @@ class HomeController extends Controller
         }
 
         $predictions = $predictions->get()->sort(function ($a, $b) {
-                // Softened sorting: all leagues get a minimum positive priority
-                $tier1Ids = [1, 39, 140, 135, 78, 61, 2, 3, 848];
-                $tier1Names = ['World Cup', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Champions League', 'Europa League', 'Conference League'];
-                $tier2Ids = [45, 40, 253, 31, 94];
-                $tier2Names = ['Championship', 'Major League Soccer', 'Eredivisie', 'Primeira Liga', 'FA Cup'];
+            // Softened sorting: all leagues get a minimum positive priority
+            $tier1Ids = [1, 39, 140, 135, 78, 61, 2, 3, 848];
+            $tier1Names = ['World Cup', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Champions League', 'Europa League', 'Conference League'];
+            $tier2Ids = [45, 40, 253, 31, 94];
+            $tier2Names = ['Championship', 'Major League Soccer', 'Eredivisie', 'Primeira Liga', 'FA Cup'];
 
+            $aPri = 0;
+            if (in_array($a->league_id, $tier1Ids)) {
+                $aPri = 2;
+            } elseif (in_array($a->league_id, $tier2Ids)) {
+                $aPri = 1;
+            } elseif (in_array($a->league_name, $tier1Names)) {
+                $aPri = 2;
+            } elseif ($a->league_name === 'Championship' && str_contains($a->league_country, 'England')) {
+                $aPri = 1;
+            } elseif (in_array($a->league_name, $tier2Names)) {
+                $aPri = 1;
+            } else {
                 $aPri = 0;
-                if (in_array($a->league_id, $tier1Ids)) $aPri = 2;
-                elseif (in_array($a->league_id, $tier2Ids)) $aPri = 1;
-                elseif (in_array($a->league_name, $tier1Names)) $aPri = 2;
-                elseif ($a->league_name === 'Championship' && str_contains($a->league_country, 'England')) $aPri = 1;
-                elseif (in_array($a->league_name, $tier2Names)) $aPri = 1;
-                else $aPri = 0; // All other leagues get minimum priority (visible, not buried)
+            } // All other leagues get minimum priority (visible, not buried)
 
+            $bPri = 0;
+            if (in_array($b->league_id, $tier1Ids)) {
+                $bPri = 2;
+            } elseif (in_array($b->league_id, $tier2Ids)) {
+                $bPri = 1;
+            } elseif (in_array($b->league_name, $tier1Names)) {
+                $bPri = 2;
+            } elseif ($b->league_name === 'Championship' && str_contains($b->league_country, 'England')) {
+                $bPri = 1;
+            } elseif (in_array($b->league_name, $tier2Names)) {
+                $bPri = 1;
+            } else {
                 $bPri = 0;
-                if (in_array($b->league_id, $tier1Ids)) $bPri = 2;
-                elseif (in_array($b->league_id, $tier2Ids)) $bPri = 1;
-                elseif (in_array($b->league_name, $tier1Names)) $bPri = 2;
-                elseif ($b->league_name === 'Championship' && str_contains($b->league_country, 'England')) $bPri = 1;
-                elseif (in_array($b->league_name, $tier2Names)) $bPri = 1;
-                else $bPri = 0; // All other leagues get minimum priority
-                
-                if ($aPri !== $bPri) return $bPri <=> $aPri;
-                if ($a->league_name !== $b->league_name) return strcmp($a->league_name, $b->league_name);
-                return strcmp($a->match_time, $b->match_time);
-            });
- 
+            } // All other leagues get minimum priority
+
+            if ($aPri !== $bPri) {
+                return $bPri <=> $aPri;
+            }
+            if ($a->league_name !== $b->league_name) {
+                return strcmp($a->league_name, $b->league_name);
+            }
+
+            return strcmp($a->match_time, $b->match_time);
+        });
+
         $predictions = $this->mapLiveScores($predictions, $date);
- 
+
         $todaysTips = $predictions; // Same data for both sections
 
         // Fetch latest articles
@@ -324,12 +355,12 @@ class HomeController extends Controller
                 'date' => $current->format('Y-m-d'),
                 'day' => $current->format('d'),
                 'is_today' => $current->isToday(),
-                'label' => $current->isToday() ? 'TODAY' : $current->format('D')
+                'label' => $current->isToday() ? 'TODAY' : $current->format('D'),
             ];
         }
 
         // Fetch SEO Metadata for this category
-        $metadata = \App\Models\Metadata::where('route_name', 'category:' . $categorySlug)->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'category:'.$categorySlug)->pluck('value', 'key');
 
         // Dynamic Market Filters (mapping categories to slugs)
         $categoryToSlugMap = [
@@ -341,7 +372,7 @@ class HomeController extends Controller
             'Home Win' => 'home-wins',
             'Away Win' => 'away-wins',
             'Correct Score' => 'correct-score',
-            'Under 2.5 Goals' => 'over-2-5-goals', # fallback
+            'Under 2.5 Goals' => 'over-2-5-goals', // fallback
         ];
 
         // Core Market Filters (Always show these from user design)
@@ -357,48 +388,54 @@ class HomeController extends Controller
         ]);
 
         $availableCategories = Prediction::whereDate('match_date', $date)->distinct()->pluck('category');
-        
+
         // Add others that have data for this day
         foreach ($availableCategories as $cat) {
             if (isset($categoryToSlugMap[$cat])) {
                 $slug = $categoryToSlugMap[$cat];
-                if (!$marketFilters->contains('slug', $slug)) {
+                if (! $marketFilters->contains('slug', $slug)) {
                     $marketFilters->push([
-                        'name' => $cat, 
-                        'slug' => $slug, 
-                        'active' => ($categorySlug == $slug)
+                        'name' => $cat,
+                        'slug' => $slug,
+                        'active' => ($categorySlug == $slug),
                     ]);
                 }
             }
         }
         $marketFilters = $marketFilters; // Removed take(7) to show all categories
 
+        // Dated archive URLs canonicalise to the base category page.
+        $canonical = route('category.show', $categorySlug);
+
         return view('category.show', compact(
-            'predictions', 
-            'todaysTips', 
-            'category', 
-            'latestArticles', 
-            'date', 
+            'predictions',
+            'todaysTips',
+            'category',
+            'latestArticles',
+            'date',
             'dateRange',
             'isLive',
             'liveCount',
-            'upcomingFixtures', 
-            'recentWinnings', 
-            'leagueStandings', 
+            'upcomingFixtures',
+            'recentWinnings',
+            'leagueStandings',
             'metadata',
-            'marketFilters'
+            'marketFilters',
+            'canonical'
         ));
     }
 
     public function allPredictions(Request $request, $date = null)
     {
         // Get date from request or default to today
-        if (!$date) $date = $request->input('date', now()->format('Y-m-d'));
+        if (! $date) {
+            $date = $request->input('date', now()->format('Y-m-d'));
+        }
         $isLive = $request->has('live');
 
         // Calculate previous and next dates
-        $previousDate = \Carbon\Carbon::parse($date)->subDay()->format('Y-m-d');
-        $nextDate = \Carbon\Carbon::parse($date)->addDay()->format('Y-m-d');
+        $previousDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+        $nextDate = Carbon::parse($date)->addDay()->format('Y-m-d');
 
         // Fetch ALL predictions for the displayed date (manual + automated)
         $query = Prediction::query();
@@ -416,26 +453,45 @@ class HomeController extends Controller
                 $tier2Names = ['Championship', 'Major League Soccer', 'Eredivisie', 'Primeira Liga', 'FA Cup'];
 
                 $aPri = 0;
-                if (in_array($a->league_id, $tier1Ids)) $aPri = 2;
-                elseif (in_array($a->league_id, $tier2Ids)) $aPri = 1;
-                elseif (in_array($a->league_name, $tier1Names)) $aPri = 2;
-                elseif ($a->league_name === 'Championship' && str_contains($a->league_country, 'England')) $aPri = 1;
-                elseif (in_array($a->league_name, $tier2Names)) $aPri = 1;
-                else $aPri = 0; // All other leagues get minimum priority (visible, not buried)
+                if (in_array($a->league_id, $tier1Ids)) {
+                    $aPri = 2;
+                } elseif (in_array($a->league_id, $tier2Ids)) {
+                    $aPri = 1;
+                } elseif (in_array($a->league_name, $tier1Names)) {
+                    $aPri = 2;
+                } elseif ($a->league_name === 'Championship' && str_contains($a->league_country, 'England')) {
+                    $aPri = 1;
+                } elseif (in_array($a->league_name, $tier2Names)) {
+                    $aPri = 1;
+                } else {
+                    $aPri = 0;
+                } // All other leagues get minimum priority (visible, not buried)
 
                 $bPri = 0;
-                if (in_array($b->league_id, $tier1Ids)) $bPri = 2;
-                elseif (in_array($b->league_id, $tier2Ids)) $bPri = 1;
-                elseif (in_array($b->league_name, $tier1Names)) $bPri = 2;
-                elseif ($b->league_name === 'Championship' && str_contains($b->league_country, 'England')) $bPri = 1;
-                elseif (in_array($b->league_name, $tier2Names)) $bPri = 1;
-                else $bPri = 0; // All other leagues get minimum priority
-                
-                if ($aPri !== $bPri) return $bPri <=> $aPri;
-                if ($a->league_name !== $b->league_name) return strcmp($a->league_name, $b->league_name);
+                if (in_array($b->league_id, $tier1Ids)) {
+                    $bPri = 2;
+                } elseif (in_array($b->league_id, $tier2Ids)) {
+                    $bPri = 1;
+                } elseif (in_array($b->league_name, $tier1Names)) {
+                    $bPri = 2;
+                } elseif ($b->league_name === 'Championship' && str_contains($b->league_country, 'England')) {
+                    $bPri = 1;
+                } elseif (in_array($b->league_name, $tier2Names)) {
+                    $bPri = 1;
+                } else {
+                    $bPri = 0;
+                } // All other leagues get minimum priority
+
+                if ($aPri !== $bPri) {
+                    return $bPri <=> $aPri;
+                }
+                if ($a->league_name !== $b->league_name) {
+                    return strcmp($a->league_name, $b->league_name);
+                }
+
                 return strcmp($a->match_time, $b->match_time);
             })->unique(function ($item) {
-                return $item->fixture_id ?: 'manual_' . $item->id;
+                return $item->fixture_id ?: 'manual_'.$item->id;
             })->values();
 
         $predictions = $this->mapLiveScores($predictions, $date);
@@ -453,13 +509,16 @@ class HomeController extends Controller
                 'date' => $current->format('Y-m-d'),
                 'day' => $current->format('d'),
                 'is_today' => $current->isToday(),
-                'label' => $current->isToday() ? 'TODAY' : $current->format('D')
+                'label' => $current->isToday() ? 'TODAY' : $current->format('D'),
             ];
         }
 
-        $metadata = \App\Models\Metadata::where('route_name', 'predictions.all')->pluck('value', 'key');
-        
-        return view('predictions.all', compact('predictions', 'date', 'dateRange', 'isLive', 'liveCount', 'metadata'));
+        $metadata = Metadata::where('route_name', 'predictions.all')->pluck('value', 'key');
+
+        // Dated archive URLs canonicalise to the base listing page.
+        $canonical = route('predictions.all');
+
+        return view('predictions.all', compact('predictions', 'date', 'dateRange', 'isLive', 'liveCount', 'metadata', 'canonical'));
     }
 
     public function worldcup(Request $request, $date = null)
@@ -469,12 +528,14 @@ class HomeController extends Controller
         $worldCupLastMatch = '2026-06-28';
 
         $today = now()->format('Y-m-d');
-        if (!$date) $date = $request->input('date', $today);
+        if (! $date) {
+            $date = $request->input('date', $today);
+        }
         $isLive = $request->has('live');
 
         // Generate date range: 3 days before to 3 days after selected date
         $dateRange = [];
-        $selected = \Carbon\Carbon::parse($date);
+        $selected = Carbon::parse($date);
         $start = $selected->copy()->subDays(3);
         for ($i = 0; $i < 7; $i++) {
             $current = $start->copy()->addDays($i);
@@ -482,7 +543,7 @@ class HomeController extends Controller
                 'date' => $current->format('Y-m-d'),
                 'day' => $current->format('d'),
                 'is_today' => $current->isToday(),
-                'label' => $current->isToday() ? 'TODAY' : $current->format('D')
+                'label' => $current->isToday() ? 'TODAY' : $current->format('D'),
             ];
         }
 
@@ -542,26 +603,29 @@ class HomeController extends Controller
                 $marketFilters->push([
                     'name' => $cat,
                     'slug' => $slug,
-                    'active' => ($selectedCategorySlug === $slug)
+                    'active' => ($selectedCategorySlug === $slug),
                 ]);
             }
         }
 
-        $metadata = \App\Models\Metadata::where('route_name', 'worldcup.index')->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'worldcup.index')->pluck('value', 'key');
 
         // Fallback metadata if not set in admin
-        if (!isset($metadata['page_title']) || empty($metadata['page_title'])) {
-            $metadata['page_title'] = 'World Cup 2026 Predictions - ' . config('app.name');
+        if (! isset($metadata['page_title']) || empty($metadata['page_title'])) {
+            $metadata['page_title'] = 'World Cup 2026 Predictions - '.config('app.name');
         }
-        if (!isset($metadata['page_description']) || empty($metadata['page_description'])) {
+        if (! isset($metadata['page_description']) || empty($metadata['page_description'])) {
             $metadata['page_description'] = 'FIFA World Cup 2026 predictions, betting tips and match analysis. Expert World Cup predictions for all matches.';
         }
-        if (!isset($metadata['page_keywords']) || empty($metadata['page_keywords'])) {
+        if (! isset($metadata['page_keywords']) || empty($metadata['page_keywords'])) {
             $metadata['page_keywords'] = 'World Cup 2026, FIFA World Cup, World Cup predictions, World Cup betting tips, World Cup matches';
         }
-        if (!isset($metadata['page_subheader']) || empty($metadata['page_subheader'])) {
+        if (! isset($metadata['page_subheader']) || empty($metadata['page_subheader'])) {
             $metadata['page_subheader'] = 'All FIFA World Cup 2026 predictions in one place. Predictions generated automatically for every match.';
         }
+
+        // Dated archive URLs canonicalise to the base World Cup page.
+        $canonical = route('worldcup.index');
 
         return view('worldcup.index', compact(
             'predictions',
@@ -570,19 +634,22 @@ class HomeController extends Controller
             'isLive',
             'liveCount',
             'metadata',
-            'marketFilters'
+            'marketFilters',
+            'canonical'
         ));
     }
 
     public function about()
     {
-        $metadata = \App\Models\Metadata::where('route_name', 'about')->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'about')->pluck('value', 'key');
+
         return view('about', compact('metadata'));
     }
 
     public function contact()
     {
-        $metadata = \App\Models\Metadata::where('route_name', 'contact')->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'contact')->pluck('value', 'key');
+
         return view('contact', compact('metadata'));
     }
 
@@ -596,11 +663,11 @@ class HomeController extends Controller
         ]);
 
         try {
-            \Illuminate\Support\Facades\Mail::raw(
+            Mail::raw(
                 "Name: {$data['name']}\nEmail: {$data['email']}\nTopic: {$data['topic']}\n\n{$data['message']}",
                 function ($msg) {
-                    $msg->to(config('mail.mailers.smtp.to_address', 'info@livescorestips.com'))
-                        ->subject('Contact Form: ' . request('topic'));
+                    $msg->to(config('mail.mailers.smtp.to_address', 'livescorestips@gmail.com'))
+                        ->subject('Contact Form: '.request('topic'));
                 }
             );
         } catch (\Exception $e) {
@@ -612,15 +679,17 @@ class HomeController extends Controller
 
     public function privacy()
     {
-        $metadata = \App\Models\Metadata::where('route_name', 'privacy')->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'privacy')->pluck('value', 'key');
         $leagueStandings = $this->getLeagueStandings();
+
         return view('privacy', compact('metadata', 'leagueStandings'));
     }
 
     public function terms()
     {
-        $metadata = \App\Models\Metadata::where('route_name', 'terms')->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'terms')->pluck('value', 'key');
         $leagueStandings = $this->getLeagueStandings();
+
         return view('terms', compact('metadata', 'leagueStandings'));
     }
 
@@ -647,33 +716,37 @@ class HomeController extends Controller
         $tier2Ids = [40, 141, 136, 79, 62, 45, 253];
 
         // ALL leagues get a minimum score of 5 to stay visible
-        $aScore = $ranks[(int)$a->league_id] ?? (in_array((int)$a->league_id, $tier2Ids) ? 10 : 5);
-        $bScore = $ranks[(int)$b->league_id] ?? (in_array((int)$b->league_id, $tier2Ids) ? 10 : 5);
+        $aScore = $ranks[(int) $a->league_id] ?? (in_array((int) $a->league_id, $tier2Ids) ? 10 : 5);
+        $bScore = $ranks[(int) $b->league_id] ?? (in_array((int) $b->league_id, $tier2Ids) ? 10 : 5);
 
         // Sorting Logic:
         // 1. Explicit Score (Ranks) — top leagues first, but others still have a positive rank
-        if ($aScore !== $bScore) return $bScore <=> $aScore;
-        
+        if ($aScore !== $bScore) {
+            return $bScore <=> $aScore;
+        }
+
         // 2. Alphabetical by League Name (within same score)
-        if ($a->league_name !== $b->league_name) return strcmp($a->league_name, $b->league_name);
-        
+        if ($a->league_name !== $b->league_name) {
+            return strcmp($a->league_name, $b->league_name);
+        }
+
         // 3. Kick-off Time
         return strcmp($a->match_time, $b->match_time);
     }
 
     private function mapLiveScores($predictions, $date = null)
     {
-        if (!$date) {
+        if (! $date) {
             $date = now()->format('Y-m-d');
         }
 
         $allFixtures = collect($this->apiFootballService->fetchFixtures($date));
         $liveFixtures = collect($this->apiFootballService->fetchLiveFixtures());
 
-        \Illuminate\Support\Facades\Log::info("mapLiveScores: Date={$date}, AllFixturesCount=" . $allFixtures->count() . ", LiveFixturesCount=" . $liveFixtures->count());
+        \Illuminate\Support\Facades\Log::info("mapLiveScores: Date={$date}, AllFixturesCount=".$allFixtures->count().', LiveFixturesCount='.$liveFixtures->count());
 
         $scores = [];
-        
+
         foreach ($allFixtures as $fixture) {
             if (isset($fixture['fixture']['id'])) {
                 $status = $fixture['fixture']['status']['short'];
@@ -709,28 +782,31 @@ class HomeController extends Controller
         return collect($predictions)->map(function ($pred) use ($scores) {
             if (isset($scores[$pred->fixture_id])) {
                 $score = $scores[$pred->fixture_id];
-                
+
                 // Update prediction with live/final data
                 $pred->home_score = $score['home'] ?? ($score['is_live'] || $score['is_finished'] ? 0 : null);
                 $pred->away_score = $score['away'] ?? ($score['is_live'] || $score['is_finished'] ? 0 : null);
                 $pred->is_live = $score['is_live'];
-                
+
                 if ($score['is_live']) {
-                    $pred->live_elapsed = $score['elapsed'] ? $score['elapsed'] . "'" : 'Live';
+                    $pred->live_elapsed = $score['elapsed'] ? $score['elapsed']."'" : 'Live';
                 } elseif ($score['is_finished']) {
                     $pred->live_elapsed = 'FT';
                 }
             }
+
             return $pred;
         });
     }
 
     public function bankerPredictions(Request $request, $date = null)
     {
-        if (!$date) $date = $request->input('date', now()->format('Y-m-d'));
+        if (! $date) {
+            $date = $request->input('date', now()->format('Y-m-d'));
+        }
 
-        $previousDate = \Carbon\Carbon::parse($date)->subDay()->format('Y-m-d');
-        $nextDate = \Carbon\Carbon::parse($date)->addDay()->format('Y-m-d');
+        $previousDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+        $nextDate = Carbon::parse($date)->addDay()->format('Y-m-d');
 
         $dateRange = [];
         $start = now()->subDay();
@@ -740,7 +816,7 @@ class HomeController extends Controller
                 'date' => $current->format('Y-m-d'),
                 'day' => $current->format('d'),
                 'is_today' => $current->isToday(),
-                'label' => $current->isToday() ? 'TODAY' : $current->format('D')
+                'label' => $current->isToday() ? 'TODAY' : $current->format('D'),
             ];
         }
 
@@ -766,7 +842,10 @@ class HomeController extends Controller
                 ->get();
         });
 
-        $metadata = \App\Models\Metadata::where('route_name', 'banker-predictions')->pluck('value', 'key');
+        $metadata = Metadata::where('route_name', 'banker-predictions')->pluck('value', 'key');
+
+        // Dated archive URLs canonicalise to the base banker page.
+        $canonical = route('banker.show');
 
         return view('banker.show', compact(
             'predictions',
@@ -777,6 +856,7 @@ class HomeController extends Controller
             'metadata',
             'previousDate',
             'nextDate',
+            'canonical'
         ));
     }
 }

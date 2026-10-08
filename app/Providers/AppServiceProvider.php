@@ -170,7 +170,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Share Sidebar data
-        View::composer('components.layout.sidebar', function ($view) {
+        View::composer(['components.layout.sidebar', 'components.layout.navbar', 'components.layout.footer'], function ($view) {
             $apiService = app(\App\Services\ApiFootballService::class);
             
             try {
@@ -186,10 +186,46 @@ class AppServiceProvider extends ServiceProvider
                 \Illuminate\Support\Facades\Log::error('Sidebar Countries Error: ' . $e->getMessage());
                 $countries = [];
             }
+
+            // Only show countries that have predictions in the DB
+            $countriesWithPredictions = \App\Models\Prediction::whereNotNull('league_country')
+                ->distinct()
+                ->pluck('league_country')
+                ->map(fn($c) => strtolower(str_replace(['-', ' '], '', $c)))
+                ->toArray();
+
+            $countries = array_values(array_filter($countries, function ($country) use ($countriesWithPredictions) {
+                $normalized = strtolower(str_replace(['-', ' '], '', $country['name']));
+                return in_array($normalized, $countriesWithPredictions);
+            }));
             
+            // Categories with predictions for today
+            $categorySlugMap = [
+                'over-2-5-goals' => 'Over 2.5 Goals',
+                'over-1-5-goals' => 'Over 1.5 Goals',
+                'btts-gg' => 'Both Teams To Score',
+                'double-chance' => 'Double Chance',
+                'draws' => 'Draw',
+                'home-wins' => 'Home Win',
+                'away-wins' => 'Away Win',
+                'correct-score' => 'Correct Score',
+            ];
+
+            $categoriesWithPredictions = \App\Models\Prediction::whereDate('match_date', now()->format('Y-m-d'))
+                ->whereIn('category', array_values($categorySlugMap))
+                ->distinct()
+                ->pluck('category')
+                ->toArray();
+
+            $activeCategorySlugs = collect($categorySlugMap)
+                ->filter(fn($name) => in_array($name, $categoriesWithPredictions))
+                ->keys()
+                ->toArray();
+
             $view->with([
                 'topLeagues' => $topLeagues,
                 'countries' => $countries,
+                'activeCategorySlugs' => $activeCategorySlugs,
             ]);
         });
     }

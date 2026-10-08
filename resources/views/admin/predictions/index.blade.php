@@ -40,6 +40,20 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <span style="font-size:15px;font-weight:700;color:#fff;">Prediction List</span>
                 <div class="as-action-group">
+                    <form id="bulk-banker-form" action="{{ route('admin.predictions.bulk-banker') }}" method="POST" class="d-inline mr-2" style="display: none !important;">
+                        @csrf
+                        <input type="hidden" name="action" value="mark">
+                        <button type="button" id="bulk-banker-btn" class="as-btn as-btn-secondary" style="gap:6px;padding:7px 16px;font-size:12px;">
+                            <i class="fa fa-shield"></i> Mark Banker <span id="banker-selected-count" class="as-table-badge warning ml-1" style="padding:2px 8px;">0</span>
+                        </button>
+                    </form>
+                    <form id="bulk-unbanker-form" action="{{ route('admin.predictions.bulk-banker') }}" method="POST" class="d-inline mr-2" style="display: none !important;">
+                        @csrf
+                        <input type="hidden" name="action" value="unmark">
+                        <button type="button" id="bulk-unbanker-btn" class="as-btn as-btn-secondary" style="gap:6px;padding:7px 16px;font-size:12px;">
+                            <i class="fa fa-shield"></i> Remove Banker <span id="unbanker-selected-count" class="as-table-badge warning ml-1" style="padding:2px 8px;">0</span>
+                        </button>
+                    </form>
                     <form id="bulk-delete-form" action="{{ route('admin.predictions.bulk-delete') }}" method="POST" class="d-inline mr-2" style="display: none !important;">
                         @csrf
                         <button type="button" id="bulk-delete-btn" class="as-btn as-btn-secondary" style="gap:6px;padding:7px 16px;font-size:12px;">
@@ -82,6 +96,17 @@
                             </div>
                         </div>
                         <div class="as-filter-group">
+                            <label>Banker</label>
+                            <div class="as-select-wrap">
+                                <select class="as-input as-select" id="banker" name="banker" style="padding-top:8px;padding-bottom:8px;font-size:13px;">
+                                    <option value="">All</option>
+                                    <option value="yes" {{ request('banker') == 'yes' ? 'selected' : '' }}>Banker Tips</option>
+                                    <option value="no" {{ request('banker') == 'no' ? 'selected' : '' }}>Non-Banker</option>
+                                </select>
+                                <i class="fa fa-chevron-down as-select-arrow"></i>
+                            </div>
+                        </div>
+                        <div class="as-filter-group">
                             <label>Month</label>
                             <input type="month" class="as-input" id="month" name="month"
                                 value="{{ request('month') }}" style="padding-top:8px;padding-bottom:8px;font-size:13px;">
@@ -97,7 +122,7 @@
                         </div>
                         <div class="as-filter-group" style="flex-direction:row;align-items:end;gap:8px;min-width:auto;">
                             <button type="submit" class="as-btn" style="gap:6px;padding:8px 20px;font-size:12px;">Apply</button>
-                            @if(request()->hasAny(['search', 'status', 'month', 'date_from', 'date_to']))
+                            @if(request()->hasAny(['search', 'status', 'banker', 'month', 'date_from', 'date_to']))
                                 <a href="{{ route('admin.predictions.index') }}" class="as-btn as-btn-secondary" style="gap:6px;padding:8px 16px;font-size:12px;">
                                     <i class="fa fa-times"></i>
                                 </a>
@@ -119,6 +144,7 @@
                         <th>Details</th>
                         <th>Prediction</th>
                         <th>Status</th>
+                        <th style="text-align:center;width:60px;">Banker</th>
                         <th style="text-align:right;padding-right:18px;">Actions</th>
                     </tr>
                 </thead>
@@ -135,7 +161,7 @@
                             elseif ($predictionDate === $tomorrow) $dateLabel = 'Tomorrow, ' . \Carbon\Carbon::parse($prediction->match_date)->format('F j');
                         @endphp
                         @if ($currentDate !== $predictionDate)
-                            <tr class="as-date-sep"><td colspan="6">{{ $dateLabel }}</td></tr>
+                            <tr class="as-date-sep"><td colspan="7">{{ $dateLabel }}</td></tr>
                             @php $currentDate = $predictionDate; @endphp
                         @endif
                         <tr>
@@ -159,6 +185,9 @@
                                         <div style="color:#fff;font-weight:700;margin-bottom:2px;">Score: {{ $prediction->home_score }} - {{ $prediction->away_score }}</div>
                                     @endif
                                     <div>Prob: <span style="color:#fff;font-weight:600;">{{ $prediction->probability }}%</span></div>
+                                    @if($prediction->is_banker)
+                                        <div style="margin-top:4px;"><span class="as-table-badge warning" style="font-size:10px;padding:2px 10px;"><i class="fa fa-shield mr-1"></i>Banker</span></div>
+                                    @endif
                                 </div>
                             </td>
                             <td>
@@ -175,6 +204,12 @@
                                 @else
                                     <span class="as-table-badge warning"><i class="fa fa-clock-o mr-1"></i> Pending</span>
                                 @endif
+                            </td>
+                            <td style="text-align:center;">
+                                <form action="{{ route('admin.predictions.toggle-banker', $prediction) }}" method="POST" class="banker-toggle-form">
+                                    @csrf
+                                    <input type="checkbox" class="banker-toggle" {{ $prediction->is_banker ? 'checked' : '' }} onchange="this.closest('form').submit();" title="{{ $prediction->is_banker ? 'Remove from banker' : 'Mark as banker' }}">
+                                </form>
                             </td>
                             <td style="text-align:right;padding-right:18px;">
                                 <div class="as-action-group">
@@ -200,7 +235,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6">
+                            <td colspan="7">
                                 <div class="as-empty">
                                     <div class="as-empty-icon"><i class="fa fa-folder-open-o"></i></div>
                                     <div class="as-empty-title">No predictions found</div>
@@ -231,15 +266,20 @@
         const checkboxes = document.querySelectorAll('.prediction-checkbox');
         const bulkDeleteForm = document.getElementById('bulk-delete-form');
         const selectedCountBadge = document.getElementById('selected-count');
+        const bulkBankerForm = document.getElementById('bulk-banker-form');
+        const bulkUnbankerForm = document.getElementById('bulk-unbanker-form');
+        const bankerSelectedCount = document.getElementById('banker-selected-count');
+        const unbankerSelectedCount = document.getElementById('unbanker-selected-count');
 
         function updateBulkUI() {
             const selected = document.querySelectorAll('.prediction-checkbox:checked');
-            selectedCountBadge.textContent = selected.length;
-            if (selected.length > 0) {
-                bulkDeleteForm.style.setProperty('display', 'inline-block', 'important');
-            } else {
-                bulkDeleteForm.style.setProperty('display', 'none', 'important');
-            }
+            const count = selected.length;
+            selectedCountBadge.textContent = count;
+            bulkDeleteForm.style.setProperty('display', count > 0 ? 'inline-block' : 'none', 'important');
+            bulkBankerForm.style.setProperty('display', count > 0 ? 'inline-block' : 'none', 'important');
+            bulkUnbankerForm.style.setProperty('display', count > 0 ? 'inline-block' : 'none', 'important');
+            bankerSelectedCount.textContent = count;
+            unbankerSelectedCount.textContent = count;
         }
 
         selectAll.addEventListener('change', function() {
@@ -257,6 +297,52 @@
                     selectAll.checked = allChecked;
                 }
             });
+        });
+
+        function submitBulkBanker(form) {
+            form.querySelectorAll('input[name="ids[]"]').forEach(el => el.remove());
+            const selected = document.querySelectorAll('.prediction-checkbox:checked');
+            if (selected.length === 0) return;
+            selected.forEach(cb => {
+                const input = document.createElement('input');
+                input.type = 'hidden'; input.name = 'ids[]'; input.value = cb.value;
+                form.appendChild(input);
+            });
+            form.submit();
+        }
+
+        document.getElementById('bulk-banker-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (typeof showConfirmModal === 'function') {
+                showConfirmModal(bulkBankerForm, {
+                    title: 'Mark as Banker Tips',
+                    message: 'Mark selected predictions as banker tips?',
+                    btnText: 'Mark as Banker',
+                    btnClass: 'btn-warning',
+                    btnIcon: 'fa-shield',
+                });
+            } else {
+                if (confirm('Mark selected predictions as banker tips?')) {
+                    submitBulkBanker(bulkBankerForm);
+                }
+            }
+        });
+
+        document.getElementById('bulk-unbanker-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (typeof showConfirmModal === 'function') {
+                showConfirmModal(bulkUnbankerForm, {
+                    title: 'Remove Banker Status',
+                    message: 'Remove banker status from selected predictions?',
+                    btnText: 'Remove Banker',
+                    btnClass: 'btn-secondary',
+                    btnIcon: 'fa-shield',
+                });
+            } else {
+                if (confirm('Remove banker status from selected predictions?')) {
+                    submitBulkBanker(bulkUnbankerForm);
+                }
+            }
         });
 
         document.getElementById('bulk-delete-btn').addEventListener('click', function(e) {

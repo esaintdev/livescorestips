@@ -19,7 +19,7 @@
                         $fRoute = $isToday ? route('home') : route('home.date', ['date' => $date]);
                     }
                 @endphp
-                <a href="{{ $fRoute }}" class="bm-modal-filter-link {{ $filter['active'] ? 'active' : '' }}">
+                <a href="{{ $fRoute }}" @if(! $isToday) rel="nofollow" @endif class="bm-modal-filter-link {{ $filter['active'] ? 'active' : '' }}">
                     <span class="bm-modal-filter-name">{{ $filter['name'] }}</span>
                     @if($filter['active'])
                         <i class="fa fa-check"></i>

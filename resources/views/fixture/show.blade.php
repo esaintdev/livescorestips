@@ -1,8 +1,16 @@
 @extends('layouts.app')
 
 @section('title', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' - ' . config('app.name'))
-@section('description', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' prediction and betting tips. Expert analysis, match odds, head-to-head stats and league standings for this ' . $fixture['league']['name'] . ' fixture.')
+@section('description', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' prediction and betting tips, including odds, head-to-head stats and ' . $fixture['league']['name'] . ' standings.')
 @section('keywords', $fixture['teams']['home']['name'] . ', ' . $fixture['teams']['away']['name'] . ', ' . $fixture['league']['name'] . ' predictions, betting tips, match analysis')
+
+@push('head')
+@foreach(($structuredData ?? []) as $schema)
+<script type="application/ld+json">
+{!! json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+</script>
+@endforeach
+@endpush
 
 @section('content')
 <style>
@@ -172,6 +180,74 @@
 }
 .fixture-show-page .stat-bar-home { background: #10b981; border-radius: 2px 0 0 2px; }
 .fixture-show-page .stat-bar-away { background: #ef4444; border-radius: 0 2px 2px 0; }
+.fixture-show-page .result-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 18px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+.fixture-show-page .result-badge.won { background: rgba(16,185,129,0.15); color: #10b981; }
+.fixture-show-page .result-badge.lost { background: rgba(239,68,68,0.15); color: #ef4444; }
+.fixture-show-page .result-badge.void { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.fixture-show-page .analysis-text { color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.8; margin: 0; }
+.fixture-show-page .factor-list { list-style: none; padding: 0; margin: 0; }
+.fixture-show-page .factor-list li {
+    position: relative;
+    padding: 8px 0 8px 24px;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    line-height: 1.6;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.fixture-show-page .factor-list li:last-child { border-bottom: none; }
+.fixture-show-page .factor-list li::before {
+    content: '\f00c';
+    font-family: FontAwesome;
+    position: absolute;
+    left: 0;
+    top: 9px;
+    color: #ff6b00;
+    font-size: 11px;
+}
+.fixture-show-page .related-list { display: flex; flex-direction: column; gap: 10px; }
+.fixture-show-page .related-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s;
+}
+.fixture-show-page .related-item:hover { background: rgba(255,255,255,0.05); }
+.fixture-show-page .related-teams { font-size: 13px; font-weight: 600; color: #fff; }
+.fixture-show-page .related-tip { font-size: 11px; font-weight: 700; color: #f59e0b; white-space: nowrap; }
+.fixture-show-page .related-category-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: rgba(255,107,0,0.1);
+    color: #ff6b00;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+.light-theme .fixture-show-page .analysis-text,
+.light-theme .fixture-show-page .factor-list li { color: rgba(0,0,0,0.65); }
+.light-theme .fixture-show-page .factor-list li { border-bottom-color: rgba(0,0,0,0.05); }
+.light-theme .fixture-show-page .related-item { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.04); }
+.light-theme .fixture-show-page .related-teams { color: #222; }
 
 @media (max-width: 576px) {
     .fixture-show-page .score-display { font-size: 28px; }
@@ -353,7 +429,91 @@
                 </div>
             @endif
 
+            {{-- ── Prediction Result (finished / voided) ── --}}
+            @if($prediction && !empty($predictionResult) && $predictionResult !== 'pending')
+                @php
+                    $finalHome = $fixture['goals']['home'] ?? ($prediction->home_score ?? null);
+                    $finalAway = $fixture['goals']['away'] ?? ($prediction->away_score ?? null);
+                @endphp
+                <div class="as-card mb-4" id="prediction-result">
+                    <div class="as-card-body">
+                        <div class="as-section-header" style="margin-bottom:20px;">
+                            <div class="as-section-icon" style="background:rgba(16,185,129,0.1);color:#10b981;">
+                                <i class="fa fa-check-circle"></i>
+                            </div>
+                            <div>
+                                <h3 class="as-section-title" style="font-size:18px;">Prediction Result</h3>
+                            </div>
+                        </div>
+                        <div class="row text-center align-items-center">
+                            <div class="col-6 col-md-4 mb-3 mb-md-0">
+                                <div class="stat-label-compact mb-2">Final Score</div>
+                                <div class="score-display final" style="font-size:26px;">
+                                    @if($finalHome !== null && $finalAway !== null)
+                                        {{ $finalHome }}:{{ $finalAway }}
+                                    @else
+                                        -
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4 mb-3 mb-md-0">
+                                <div class="stat-label-compact mb-2">Prediction</div>
+                                <div style="font-size:20px;font-weight:800;color:#10b981;">{{ $prediction->tip }}</div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="stat-label-compact mb-2">Result</div>
+                                <span class="result-badge {{ $predictionResult }}">{{ strtoupper($predictionResult) }}</span>
+                            </div>
+                        </div>
+                        @if(!empty($summary))
+                            <p class="analysis-text" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05);">
+                                {{ $summary }}
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            {{-- ── Prediction Analysis ── --}}
+            @if($prediction && !empty($analysis))
+                <div class="as-card mb-4">
+                    <div class="as-card-body">
+                        <div class="as-section-header" style="margin-bottom:20px;">
+                            <div class="as-section-icon" style="background:rgba(255,107,0,0.1);color:#ff6b00;">
+                                <i class="fa fa-lightbulb-o"></i>
+                            </div>
+                            <div>
+                                <h3 class="as-section-title" style="font-size:18px;">Prediction Analysis</h3>
+                            </div>
+                        </div>
+                        <p class="analysis-text">{{ $analysis }}</p>
+                    </div>
+                </div>
+            @endif
+
+            {{-- ── Key Match Factors ── --}}
+            @if(!empty($factors))
+                <div class="as-card mb-4">
+                    <div class="as-card-body">
+                        <div class="as-section-header" style="margin-bottom:16px;">
+                            <div class="as-section-icon" style="background:rgba(14,165,233,0.1);color:#0ea5e9;">
+                                <i class="fa fa-list-ul"></i>
+                            </div>
+                            <div>
+                                <h3 class="as-section-title" style="font-size:18px;">Key Match Factors</h3>
+                            </div>
+                        </div>
+                        <ul class="factor-list">
+                            @foreach($factors as $factor)
+                                <li>{{ $factor }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            @endif
+
             {{-- ── Head to Head ── --}}
+            @if(!empty($headToHead))
             <div class="as-card mb-4">
                 <div class="as-card-body">
                     <div class="as-section-header">
@@ -364,38 +524,31 @@
                             <h3 class="as-section-title" style="font-size:18px;">Head to Head (H2H)</h3>
                         </div>
                     </div>
-                    @if(!empty($headToHead))
-                        <div class="as-table-wrap">
-                            <table class="as-table">
-                                <thead>
+                    <div class="as-table-wrap">
+                        <table class="as-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th class="text-right">Home</th>
+                                    <th class="text-center">Score</th>
+                                    <th>Away</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach(array_slice($headToHead, 0, 5) as $h2h)
                                     <tr>
-                                        <th>Date</th>
-                                        <th class="text-right">Home</th>
-                                        <th class="text-center">Score</th>
-                                        <th>Away</th>
+                                        <td class="h2h-date" style="width:18%;">{{ \Carbon\Carbon::parse($h2h['fixture']['date'])->format('M d, Y') }}</td>
+                                        <td class="text-right font-weight-bold" style="width:30%;">{{ $h2h['teams']['home']['name'] }}</td>
+                                        <td class="text-center font-weight-bold" style="width:16%;color:#f59e0b;">{{ $h2h['goals']['home'] ?? '-' }}-{{ $h2h['goals']['away'] ?? '-' }}</td>
+                                        <td class="font-weight-bold" style="width:30%;">{{ $h2h['teams']['away']['name'] }}</td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach(array_slice($headToHead, 0, 5) as $h2h)
-                                        <tr>
-                                            <td class="h2h-date" style="width:18%;">{{ \Carbon\Carbon::parse($h2h['fixture']['date'])->format('M d, Y') }}</td>
-                                            <td class="text-right font-weight-bold" style="width:30%;">{{ $h2h['teams']['home']['name'] }}</td>
-                                            <td class="text-center font-weight-bold" style="width:16%;color:#f59e0b;">{{ $h2h['goals']['home'] ?? '-' }}-{{ $h2h['goals']['away'] ?? '-' }}</td>
-                                            <td class="font-weight-bold" style="width:30%;">{{ $h2h['teams']['away']['name'] }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <div class="as-empty">
-                            <div class="as-empty-icon"><i class="fa fa-history"></i></div>
-                            <div class="as-empty-title">No H2H History</div>
-                            <div class="as-empty-text">No direct head-to-head matches found.</div>
-                        </div>
-                    @endif
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+            @endif
 
             {{-- ── Discussion ── --}}
             <div class="as-card mb-4">
@@ -459,7 +612,8 @@
         {{-- RIGHT COLUMN (4 cols) --}}
         <div class="col-lg-4">
 
-            {{-- ── Team Stats ── --}}
+            {{-- ── Team Stats (hidden entirely when no meaningful data) ── --}}
+            @if(!empty($homeStats) && !empty($awayStats))
             <div class="as-card mb-4">
                 <div class="as-card-body">
                     <div class="as-section-header" style="margin-bottom:20px;">
@@ -470,8 +624,7 @@
                             <h3 class="as-section-title" style="font-size:16px;">Team Stats</h3>
                         </div>
                     </div>
-                    @if(!empty($homeStats) && !empty($awayStats))
-                        @php
+                    @php
                             $statsCols = [
                                 ['label' => 'Matches Played', 'home' => $homeStats['fixtures']['played']['total'] ?? 0, 'away' => $awayStats['fixtures']['played']['total'] ?? 0],
                                 ['label' => 'Wins', 'home' => $homeStats['fixtures']['wins']['total'] ?? 0, 'away' => $awayStats['fixtures']['wins']['total'] ?? 0],
@@ -501,19 +654,14 @@
                                 </div>
                             @endforeach
                         </div>
-                    @else
-                        <div class="as-empty" style="padding:24px 16px;">
-                            <div class="as-empty-icon"><i class="fa fa-bar-chart"></i></div>
-                            <div class="as-empty-title">No Stats Available</div>
-                            <div class="as-empty-text">Stats currently unavailable for this fixture.</div>
-                        </div>
-                    @endif
                 </div>
             </div>
+            @endif
         </div>
     </div>
 
-    {{-- ==================== LEAGUE STANDINGS ==================== --}}
+    {{-- ==================== LEAGUE STANDINGS (hidden when unavailable) ==================== --}}
+    @if(!empty($standings))
     <div class="as-card mb-4">
         <div class="as-card-body">
             <div class="as-section-header">
@@ -524,8 +672,7 @@
                     <h3 class="as-section-title" style="font-size:18px;">League Standings — {{ $fixture['league']['name'] }}</h3>
                 </div>
             </div>
-            @if(!empty($standings))
-                @php $tableRows = $standings; @endphp
+            @php $tableRows = $standings; @endphp
                 <div class="as-table-wrap">
                     <table class="as-table">
                         <thead>
@@ -553,7 +700,7 @@
                                         </span>
                                     </td>
                                     <td class="align-middle font-weight-bold">
-                                        <img src="{{ $rank['team']['logo'] }}" class="team-logo-sm mr-2">
+                                        <img src="{{ $rank['team']['logo'] }}" alt="{{ $rank['team']['name'] }} logo" class="team-logo-sm mr-2">
                                         {{ $rank['team']['name'] }}
                                     </td>
                                     <td class="text-center align-middle">{{ $rank['all']['played'] }}</td>
@@ -567,15 +714,40 @@
                         </tbody>
                     </table>
                 </div>
-            @else
-                <div class="as-empty">
-                    <div class="as-empty-icon"><i class="fa fa-list-ol"></i></div>
-                    <div class="as-empty-title">No Standings Available</div>
-                    <div class="as-empty-text">Standings information currently unavailable for this league.</div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ==================== RELATED PREDICTIONS ==================== --}}
+    @if($prediction && ($categorySlug || $related->isNotEmpty()))
+    <div class="as-card mb-4">
+        <div class="as-card-body">
+            <div class="as-section-header" style="margin-bottom:16px;">
+                <div class="as-section-icon" style="background:rgba(255,107,0,0.1);color:#ff6b00;">
+                    <i class="fa fa-link"></i>
+                </div>
+                <div>
+                    <h3 class="as-section-title" style="font-size:18px;">Related Predictions</h3>
+                </div>
+            </div>
+            @if($categorySlug)
+                <a href="{{ route('category.show', $categorySlug) }}" class="related-category-link">
+                    <i class="fa fa-th-list"></i> More {{ $prediction->category }} predictions
+                </a>
+            @endif
+            @if($related->isNotEmpty())
+                <div class="related-list">
+                    @foreach($related as $relatedPrediction)
+                        <a class="related-item" href="{{ route('fixture.show', [$relatedPrediction->slug, $relatedPrediction->match_date->format('Y-m-d')]) }}">
+                            <span class="related-teams">{{ $relatedPrediction->home_team }} vs {{ $relatedPrediction->away_team }}</span>
+                            <span class="related-tip">{{ $relatedPrediction->category }} · {{ $relatedPrediction->tip }}</span>
+                        </a>
+                    @endforeach
                 </div>
             @endif
         </div>
     </div>
+    @endif
 </div>
 
 <style>

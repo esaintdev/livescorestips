@@ -83,12 +83,13 @@
 **Fix:** Limit sidebar to top 30 countries by match volume. Move full list to a dedicated `/countries` page or keep the JS search but cap visible links.
 
 ### 3.3 Standardize brand name
-**Files:** `.env`, `resources/views/home.blade.php`, `resources/views/layouts/app.blade.php`, `config/app.php`
+**Files:** `.env`, `resources/views/home.blade.php`, `resources/views/layouts/app.blade.php`, `config/app.php`, `resources/views/components/layout/head.blade.php`
 **Issue:** "LiveScores Tips", "LiveScore tips", "LiveScoresTips", "LiveScoreTips" used inconsistently.
-**Fix:** Pick one — recommend **LiveScoresTips** (single capitalized word, matches domain). Update:
-- `.env`: `APP_NAME="LiveScoresTips"`
-- All Blade `config('app.name', ...)` fallbacks to "LiveScoresTips"
-- Title tag to remove double space
+**Fix:** DONE — standardized on **LiveScores Tips** (with space) as the canonical brand. `config('app.name')` is the single source of truth:
+- `.env`: `APP_NAME="LiveScores Tips"` (already set)
+- All Blade `config('app.name', ...)` fallbacks use "LiveScores Tips"
+- Hardcoded brand strings in `head.blade.php`, `vip.blade.php`, `recent-winnings.blade.php`, `admin/login.blade.php`, email templates updated to use `config('app.name')`
+- JSON-LD `alternateName` updated to genuine aliases: `LiveScoresTips`, `Live Scores Tips`
 
 ### 3.4 Fix social links with `#`
 **File:** `resources/views/components/layout/footer.blade.php`

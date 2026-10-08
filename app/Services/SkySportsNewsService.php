@@ -25,7 +25,7 @@ class SkySportsNewsService
             return null;
         }
 
-        $response = Http::timeout(15)
+        $response = Http::timeout(30)
             ->withHeader('X-API-Key', $key)
             ->get("{$this->baseUrl}/{$endpoint}", $params);
 
@@ -71,6 +71,13 @@ class SkySportsNewsService
 
             if (!$headline || !$articleUrl) continue;
 
+            // Live blogs and video pages have no meaningful article body;
+            // skip them before hitting the detail API to avoid thin content.
+            if (str_contains($articleUrl, '/live-blog/') || str_contains($articleUrl, '/video/')) {
+                Log::info('SkySportsNewsService: skipping non-article URL', ['url' => $articleUrl]);
+                continue;
+            }
+
             $slug = Str::slug($headline);
             $count = Article::where('slug', 'LIKE', "{$slug}%")->count();
             if ($count > 0) {
@@ -80,9 +87,21 @@ class SkySportsNewsService
             if (Article::where('slug', $slug)->exists()) continue;
 
             $detail = $this->getArticleDetail($articleUrl);
-            if (!$detail) continue;
 
-            $body = $detail['body'] ?? $summary;
+            $body = '';
+            if (is_array($detail)) {
+                $body = $detail['body'] ?? '';
+            }
+
+            // Skip live-blogs or any URL whose scraper returned no body.
+            // Otherwise we'd publish title+image only (thin content).
+            if (trim(strip_tags((string) $body)) === '') {
+                Log::info('SkySportsNewsService: skipping article with empty body', [
+                    'url' => $articleUrl,
+                ]);
+                continue;
+            }
+
             $detailImageUrl = $detail['images'][0]['url'] ?? $imageUrl;
 
             $localImage = null;

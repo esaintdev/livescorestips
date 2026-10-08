@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<x-layout.head title="VIP Plans - LiveScores Tips"
+<x-layout.head title="VIP Plans - {{ config('app.name', 'LiveScores Tips') }}"
     description="Unlock premium betting tips with our VIP subscription plans. Get exclusive access to high-odds predictions and expert analysis."
     keywords="VIP betting tips, premium predictions, betting subscription" />
 

@@ -26,7 +26,6 @@
 
     // Top leagues for Popular Competitions
     $leagues = [
-        ['id' => 1,   'name' => 'World Cup',        'slug' => 'world-cup'],
         ['id' => 39,  'name' => 'Premier League',   'slug' => 'premier-league'],
         ['id' => 140, 'name' => 'La Liga',          'slug' => 'la-liga'],
         ['id' => 78,  'name' => 'Bundesliga',       'slug' => 'bundesliga'],
@@ -113,7 +112,16 @@
                     @endif
 
                     <h4 class="bm-footer-title" style="margin-top:16px;">Contact</h4>
-                    <a href="mailto:info@livescorestips.com" class="bm-footer-link" style="font-size:13px;">info@livescorestips.com</a>
+                    <a href="mailto:livescorestips@gmail.com" class="bm-footer-link" style="font-size:13px;">livescorestips@gmail.com</a>
+
+                    @if(($footerLinks ?? collect())->isNotEmpty())
+                        <h4 class="bm-footer-title" style="margin-top:16px;">Useful Links</h4>
+                        <ul class="bm-footer-list">
+                            @foreach($footerLinks as $link)
+                                <li><a href="{{ $link->url }}" class="bm-footer-link" target="_blank" rel="noopener">{{ $link->title }}</a></li>
+                            @endforeach
+                        </ul>
+                    @endif
                 </div>
 
                 {{-- RIGHT: Link groups grid --}}
@@ -179,10 +187,14 @@
                             <h4 class="bm-footer-title">Categories</h4>
                             <ul class="bm-footer-list">
                                 @foreach($categories as $cat)
+                                    @if($cat['route'] === 'banker.show' || in_array($cat['slug'], $activeCategorySlugs ?? []))
                                         <li><a href="{{ $cat['route'] === 'banker.show' ? route('banker.show') : route('category.show', $cat['slug']) }}" class="bm-footer-link">{{ $cat['name'] }}</a></li>
+                                    @endif
                                 @endforeach
                             </ul>
                         </div>
+
+                        {{-- Useful Links moved to left column (after Contact) --}}
                     </div>
                 </div>
             </div>
