@@ -44,6 +44,7 @@ class PredictionController extends Controller
             'meta' => [
                 'page_title' => $metadata['page_title'] ?? null,
                 'page_description' => $metadata['page_description'] ?? null,
+                'page_subheader' => $metadata['page_subheader'] ?? null,
             ],
         ]);
     }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "193190761237",
+    "project_id": "livescores-tips",
+    "storage_bucket": "livescores-tips.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:193190761237:android:e5bea2dd301627cf6f0f1c",
+        "android_client_info": {
+          "package_name": "com.livescorestips.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBM4zK-z3vGnrslbbEFr3LwSrVbtWTXogM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

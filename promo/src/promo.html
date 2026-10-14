@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LiveScores Tips — 9:16 promo</title>
+<style>
+/* Timeline is pure CSS: every animation is paused and seeked by render.js
+   (window.seek(ms)). Open this file in a browser with ?play to preview live. */
+@font-face { font-family: 'Sofia'; font-weight: 400; src: url('../../app-mobile/assets/fonts/SofiaSans-Regular.ttf'); }
+@font-face { font-family: 'Sofia'; font-weight: 600; src: url('../../app-mobile/assets/fonts/SofiaSans-SemiBold.ttf'); }
+@font-face { font-family: 'Sofia'; font-weight: 800; src: url('../../app-mobile/assets/fonts/SofiaSans-ExtraBold.ttf'); }
+@font-face { font-family: 'Sofia'; font-weight: 900; src: url('../../app-mobile/assets/fonts/SofiaSans-Black.ttf'); }
+
+:root {
+    --bg: #070b1a;
+    --navy: #04145d;
+    --blue: #0b5bdb;
+    --orange: #ff6d00;
+    --green: #1fd18a;
+    --ink: #ffffff;
+    --mute: #9fb0d6;
+    --card: rgba(255, 255, 255, .07);
+    --line: rgba(255, 255, 255, .13);
+    --ease: cubic-bezier(.2, .9, .25, 1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+body { font-family: 'Sofia', sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+.stage { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+    background: linear-gradient(165deg, #04145d 0%, #070b1a 55%, #070b1a 100%); }
+
+/* ---------- ambient background ---------- */
+.blob { position: absolute; border-radius: 50%; filter: blur(120px); }
+.blob.b1 { width: 900px; height: 900px; left: -300px; top: -250px; background: #0b5bdb; opacity: .55;
+    animation: drift1 22s linear both; }
+.blob.b2 { width: 760px; height: 760px; right: -320px; bottom: 80px; background: #ff6d00; opacity: .22;
+    animation: drift2 22s linear both; }
+@keyframes drift1 { from { transform: translate(0, 0) scale(1); } to { transform: translate(260px, 420px) scale(1.25); } }
+@keyframes drift2 { from { transform: translate(0, 0) scale(1); } to { transform: translate(-220px, -520px) scale(1.3); } }
+.pitch { position: absolute; inset: 0; opacity: .07;
+    background-image: linear-gradient(var(--ink) 2px, transparent 2px), linear-gradient(90deg, var(--ink) 2px, transparent 2px);
+    background-size: 120px 120px; animation: pan 22s linear both; }
+@keyframes pan { from { background-position: 0 0; } to { background-position: 0 -480px; } }
+.ring { position: absolute; left: 50%; top: 50%; width: 1300px; height: 1300px; margin: -650px 0 0 -650px;
+    border: 3px solid rgba(255, 255, 255, .06); border-radius: 50%; }
+
+/* ---------- scene + entrance primitives ---------- */
+.scene { position: absolute; inset: 0; padding: 250px 80px 360px; display: flex; flex-direction: column;
+    justify-content: center; opacity: 0;
+    animation: sIn .45s var(--ease) var(--s) both, sOut .4s ease-in var(--e) forwards; }
+@keyframes sIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.06); } }
+
+.up { animation: up .7s var(--ease) var(--d) both; }
+.pop { animation: pop .6s var(--ease) var(--d) both; }
+.left { animation: left .7s var(--ease) var(--d) both; }
+@keyframes up { from { opacity: 0; transform: translateY(90px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { opacity: 0; transform: scale(.5); } 70% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes left { from { opacity: 0; transform: translateX(160px); } to { opacity: 1; transform: none; } }
+
+.eyebrow { display: inline-flex; align-items: center; gap: 16px; align-self: flex-start; padding: 16px 30px;
+    border-radius: 999px; background: var(--card); border: 2px solid var(--line);
+    font-size: 34px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; }
+.dot { width: 18px; height: 18px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 8px rgba(31, 209, 138, .22); }
+h1 { font-size: 168px; line-height: .95; font-weight: 900; letter-spacing: -4px; text-transform: uppercase; }
+h2 { font-size: 112px; line-height: 1; font-weight: 900; letter-spacing: -2.5px; text-transform: uppercase; }
+.or { color: var(--orange); }
+.sub { font-size: 50px; line-height: 1.25; font-weight: 600; color: var(--mute); }
+
+/* ---------- scene 1: hook ---------- */
+.s1 h1 span { display: block; }
+.strike { position: relative; display: inline-block !important; }
+.strike::after { content: ''; position: absolute; left: -12px; right: -12px; top: 50%; height: 20px; margin-top: -6px;
+    background: var(--orange); border-radius: 10px; transform-origin: left;
+    animation: strike .45s var(--ease) 1.75s both; }
+@keyframes strike { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ---------- scene 2: brand ---------- */
+.s2 { align-items: center; text-align: center; }
+.mark { width: 330px; height: 330px; border-radius: 50%; box-shadow: 0 30px 120px rgba(255, 109, 0, .55); }
+.word { margin-top: 56px; font-size: 138px; font-weight: 900; letter-spacing: -3px; line-height: 1; }
+.s2 .sub { margin-top: 34px; font-size: 56px; color: var(--ink); }
+.s2 .eyebrow { align-self: center; margin-top: 60px; }
+
+/* ---------- scene 3: today's tips ---------- */
+.s3 { justify-content: flex-start; padding-top: 270px; }
+.s3 h2 { font-size: 104px; }
+.dates { display: flex; gap: 18px; margin: 40px 0 44px; }
+.dates div { padding: 18px 36px; border-radius: 999px; font-size: 36px; font-weight: 800; border: 2px solid var(--line); color: var(--mute); }
+.dates .on { background: var(--orange); border-color: var(--orange); color: #fff; }
+.match { position: relative; display: flex; align-items: center; gap: 26px; padding: 30px 34px; margin-bottom: 24px;
+    background: var(--card); border: 2px solid var(--line); border-radius: 36px; backdrop-filter: blur(20px); }
+.match .time { width: 110px; font-size: 36px; font-weight: 800; color: var(--mute); }
+.teams { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.team { display: flex; align-items: center; gap: 20px; font-size: 44px; font-weight: 800; white-space: nowrap; }
+.crest { flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 24px; font-weight: 900; border: 3px solid rgba(255, 255, 255, .35); }
+.tipbox { width: 250px; text-align: right; }
+.tip { display: inline-block; padding: 12px 24px; border-radius: 16px; background: var(--blue); font-size: 36px; font-weight: 900; }
+.odds { margin-top: 12px; font-size: 32px; font-weight: 800; color: var(--mute); }
+.odds b { color: var(--ink); }
+.bar { position: absolute; left: 34px; right: 34px; bottom: 0; height: 8px; border-radius: 8px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.bar i { display: block; height: 100%; width: var(--p); background: linear-gradient(90deg, var(--blue), var(--green));
+    transform-origin: left; animation: grow .9s var(--ease) calc(var(--d) + .35s) both; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.banker { position: absolute; top: -22px; left: 30px; padding: 8px 22px; border-radius: 999px; background: var(--orange);
+    font-size: 26px; font-weight: 900; letter-spacing: 2px; animation: pop .5s var(--ease) calc(var(--d) + .5s) both; }
+.note { margin-top: 10px; font-size: 28px; font-weight: 600; color: rgba(159, 176, 214, .75); }
+
+/* ---------- scene 4: markets ---------- */
+.s4 h2 { margin-bottom: 26px; }
+.chips { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 50px; }
+.chip { padding: 26px 40px; border-radius: 28px; background: var(--card); border: 2px solid var(--line); font-size: 50px; font-weight: 800; }
+.chip.hot { background: var(--orange); border-color: var(--orange); }
+.chip.blue { background: var(--blue); border-color: var(--blue); }
+
+/* ---------- scene 5: why ---------- */
+.feat { display: flex; align-items: center; gap: 36px; padding: 40px; margin-top: 30px; border-radius: 40px;
+    background: var(--card); border: 2px solid var(--line); }
+.ico { flex: none; width: 130px; height: 130px; border-radius: 34px; display: grid; place-items: center; background: var(--blue); }
+.ico.o { background: var(--orange); }
+.ico.g { background: #12a56b; }
+.ico svg { width: 72px; height: 72px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.feat b { display: block; font-size: 56px; font-weight: 900; line-height: 1.05; }
+.feat span { display: block; margin-top: 10px; font-size: 38px; font-weight: 600; color: var(--mute); line-height: 1.2; }
+
+/* ---------- scene 6: CTA ---------- */
+.s6 { align-items: center; text-align: center; }
+.s6 .mark { width: 220px; height: 220px; }
+.s6 h2 { margin-top: 56px; font-size: 128px; }
+.url { margin-top: 64px; padding: 34px 60px; border-radius: 999px; background: #fff; color: #070b1a;
+    font-size: 66px; font-weight: 900; letter-spacing: -1px; box-shadow: 0 30px 100px rgba(11, 91, 219, .7); }
+.pulse { animation: pulse 1.1s ease-in-out 19.6s 3 both; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.s6 .sub { margin-top: 50px; }
+
+/* ---------- persistent compliance line ---------- */
+.legal { position: absolute; left: 0; right: 0; bottom: 250px; text-align: center; font-size: 28px; font-weight: 600;
+    color: rgba(255, 255, 255, .55); letter-spacing: .5px; }
+.legal b { display: inline-block; margin-right: 12px; padding: 2px 12px; border: 2px solid rgba(255, 255, 255, .55); border-radius: 999px; font-weight: 900; }
+</style>
+</head>
+<body>
+<div class="stage">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="pitch"></div>
+    <div class="ring"></div>
+
+    <!-- 1 · Hook  0.0 – 3.2 -->
+    <section class="scene s1" style="--s: 0s; --e: 2.9s">
+        <div class="eyebrow up" style="--d: .1s"><i class="dot"></i>Matchday</div>
+        <h1 style="margin-top: 50px">
+            <span class="up" style="--d: .3s">Still</span>
+            <span class="up strike" style="--d: .55s">guessing</span>
+            <span class="up" style="--d: .8s">your</span>
+            <span class="up or" style="--d: 1.05s">picks?</span>
+        </h1>
+    </section>
+
+    <!-- 2 · Brand  3.2 – 6.6 -->
+    <section class="scene s2" style="--s: 3.2s; --e: 6.3s">
+        <img class="mark pop" style="--d: 3.3s" src="../../images/icon.png" alt="">
+        <div class="word up" style="--d: 3.65s">LiveScores<br><span class="or">Tips</span></div>
+        <p class="sub up" style="--d: 4.0s">Free football predictions.<br>Every single day.</p>
+        <div class="eyebrow pop" style="--d: 4.5s"><i class="dot"></i>100% free to use</div>
+    </section>
+
+    <!-- 3 · Today's tips  6.6 – 11.8 -->
+    <section class="scene s3" style="--s: 6.6s; --e: 11.5s">
+        <h2 class="up" style="--d: 6.7s">Today's <span class="or">tips</span></h2>
+        <div class="dates up" style="--d: 6.95s"><div>Yesterday</div><div class="on">Today</div><div>Tomorrow</div></div>
+
+        <div class="match left" style="--d: 7.3s; --p: 82%">
+            <span class="banker">BANKER</span>
+            <div class="time">17:30</div>
+            <div class="teams">
+                <div class="team"><i class="crest" style="background:#c8102e">H</i>Home side</div>
+                <div class="team"><i class="crest" style="background:#1d4ed8">A</i>Away side</div>
+            </div>
+            <div class="tipbox"><div class="tip">Over 1.5</div><div class="odds">Odds <b>1.32</b></div></div>
+            <div class="bar"><i></i></div>
+        </div>
+        <div class="match left" style="--d: 7.7s; --p: 71%">
+            <div class="time">20:00</div>
+            <div class="teams">
+                <div class="team"><i class="crest" style="background:#0f766e">H</i>Home side</div>
+                <div class="team"><i class="crest" style="background:#7c3aed">A</i>Away side</div>
+            </div>
+            <div class="tipbox"><div class="tip">BTTS · GG</div><div class="odds">Odds <b>1.75</b></div></div>
+            <div class="bar"><i></i></div>
+        </div>
+        <div class="match left" style="--d: 8.1s; --p: 76%">
+            <div class="time">20:45</div>
+            <div class="teams">
+                <div class="team"><i class="crest" style="background:#b45309">H</i>Home side</div>
+                <div class="team"><i class="crest" style="background:#334155">A</i>Away side</div>
+            </div>
+            <div class="tipbox"><div class="tip">1X</div><div class="odds">Odds <b>1.28</b></div></div>
+            <div class="bar"><i></i></div>
+        </div>
+        <div class="match left" style="--d: 8.5s; --p: 64%">
+            <div class="time">21:00</div>
+            <div class="teams">
+                <div class="team"><i class="crest" style="background:#be185d">H</i>Home side</div>
+                <div class="team"><i class="crest" style="background:#15803d">A</i>Away side</div>
+            </div>
+            <div class="tipbox"><div class="tip">Over 2.5</div><div class="odds">Odds <b>1.90</b></div></div>
+            <div class="bar"><i></i></div>
+        </div>
+        <p class="note up" style="--d: 9.0s">Sample layout — real fixtures, tips and odds update daily.</p>
+    </section>
+
+    <!-- 4 · Markets  11.8 – 15.3 -->
+    <section class="scene s4" style="--s: 11.8s; --e: 15s">
+        <h2 class="up" style="--d: 11.9s">Every market.<br><span class="or">One place.</span></h2>
+        <div class="chips">
+            <div class="chip pop hot" style="--d: 12.3s">Banker Tips</div>
+            <div class="chip pop" style="--d: 12.42s">1X2</div>
+            <div class="chip pop" style="--d: 12.54s">Double Chance</div>
+            <div class="chip pop blue" style="--d: 12.66s">Over 1.5</div>
+            <div class="chip pop" style="--d: 12.78s">Over 2.5</div>
+            <div class="chip pop" style="--d: 12.9s">BTTS / GG</div>
+            <div class="chip pop" style="--d: 13.02s">Draws</div>
+            <div class="chip pop blue" style="--d: 13.14s">Correct Score</div>
+            <div class="chip pop" style="--d: 13.26s">Home Wins</div>
+            <div class="chip pop" style="--d: 13.38s">Away Wins</div>
+        </div>
+    </section>
+
+    <!-- 5 · Why  15.3 – 18.8 -->
+    <section class="scene s5" style="--s: 15.3s; --e: 18.5s">
+        <h2 class="up" style="--d: 15.4s">Built for<br><span class="or">smarter</span> picks</h2>
+        <div class="feat left" style="--d: 15.8s; margin-top: 60px">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 20h18M6 20V11M11 20V5M16 20v-7M21 20v-11"/></svg></div>
+            <div><b>Match stats &amp; odds</b><span>Form, fixtures and league tables</span></div>
+        </div>
+        <div class="feat left" style="--d: 16.15s">
+            <div class="ico g"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg></div>
+            <div><b>Results on record</b><span>Every tip tracked, win or lose</span></div>
+        </div>
+        <div class="feat left" style="--d: 16.5s">
+            <div class="ico o"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></div>
+            <div><b>VIP plans</b><span>Premium picks when you want more</span></div>
+        </div>
+    </section>
+
+    <!-- 6 · CTA  18.8 – 22 -->
+    <section class="scene s6" style="--s: 18.8s; --e: 30s">
+        <img class="mark pop" style="--d: 18.9s" src="../../images/icon.png" alt="">
+        <h2 class="up" style="--d: 19.1s">Get today's<br><span class="or">free tips</span></h2>
+        <div class="up" style="--d: 19.4s"><div class="url pulse">livescorestips.com</div></div>
+        <p class="sub up" style="--d: 19.7s">Fresh predictions, every matchday.</p>
+    </section>
+
+    <div class="legal"><b>18+</b>Predictions are opinions, not guarantees. Bet responsibly.</div>
+</div>
+
+<script>
+const anims = document.getAnimations();
+window.DURATION = 22000;
+window.seek = (ms) => anims.forEach(a => { a.pause(); a.currentTime = ms; });
+if (!location.search.includes('play')) window.seek(0);
+</script>
+</body>
+</html>
