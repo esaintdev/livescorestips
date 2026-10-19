@@ -32,11 +32,8 @@ class AppServiceProvider extends ServiceProvider
 
         Paginator::useBootstrap();
 
-        Event::listen(PostReceived::class, CopyCalmifyPost::class);
-
-        if (class_exists(PostUnpublished::class)) {
-            Event::listen(PostUnpublished::class, HideCalmifyPost::class);
-        }
+        Event::listen(\Calmify\Laravel\Events\PostReceived::class, \App\Listeners\CopyCalmifyPost::class);
+        Event::listen(\Calmify\Laravel\Events\PostUnpublished::class, \App\Listeners\HideCalmifyPost::class);
 
         try {
             if (\Schema::hasTable('settings')) {
