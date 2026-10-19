@@ -68,16 +68,16 @@
         },
         {
             "name": "calmify/laravel",
-            "version": "v1.1.0",
+            "version": "v1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/esaintdev/calmify-laravel.git",
-                "reference": "f8a3cff9f83ad39e03893b8c39d17f01dcc3c7e6"
+                "reference": "860f4abc66f305c9a0b194660078cf4f74ec26f9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/esaintdev/calmify-laravel/zipball/f8a3cff9f83ad39e03893b8c39d17f01dcc3c7e6",
-                "reference": "f8a3cff9f83ad39e03893b8c39d17f01dcc3c7e6",
+                "url": "https://api.github.com/repos/esaintdev/calmify-laravel/zipball/860f4abc66f305c9a0b194660078cf4f74ec26f9",
+                "reference": "860f4abc66f305c9a0b194660078cf4f74ec26f9",
                 "shasum": ""
             },
             "require": {
@@ -105,9 +105,9 @@
             "description": "Receive articles from Calmify on a Laravel website: one install command, one pairing code.",
             "support": {
                 "issues": "https://github.com/esaintdev/calmify-laravel/issues",
-                "source": "https://github.com/esaintdev/calmify-laravel/tree/v1.1.0"
+                "source": "https://github.com/esaintdev/calmify-laravel/tree/v1.2.0"
             },
-            "time": "2026-10-19T05:52:58+00:00"
+            "time": "2026-10-19T06:44:16+00:00"
         },
         {
             "name": "carbonphp/carbon-doctrine-types",
