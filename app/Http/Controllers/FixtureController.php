@@ -266,11 +266,12 @@ class FixtureController extends Controller
     }
 
     /**
-     * Valid JSON-LD built only from data that is actually present.
+     * Build JSON-LD structured data for the match page: a SportsEvent and a BreadcrumbList.
+     * Valid Schema.org structured data with guaranteed location for Google Search.
      *
      * @return array<int, array>
      */
-    private function structuredData(array $fixture, ?Prediction $prediction, ?string $categorySlug): array
+    public function structuredData(array $fixture, ?Prediction $prediction, ?string $categorySlug): array
     {
         $homeName = $fixture['teams']['home']['name'] ?? null;
         $awayName = $fixture['teams']['away']['name'] ?? null;
@@ -283,25 +284,92 @@ class FixtureController extends Controller
             ? route('fixture.show', [$prediction->slug, $prediction->match_date->format('Y-m-d')])
             : url()->current();
 
+        $leagueName = ! empty($fixture['league']['name']) ? trim($fixture['league']['name']) : null;
+        $description = 'Live score, predictions, head-to-head statistics, and match preview for '.$homeName.' vs '.$awayName.($leagueName ? ' in '.$leagueName : '').'.';
+
+        $venueName = ! empty($fixture['fixture']['venue']['name'])
+            ? trim($fixture['fixture']['venue']['name'])
+            : trim($homeName).' Stadium';
+
+        $venueCity = ! empty($fixture['fixture']['venue']['city'])
+            ? trim($fixture['fixture']['venue']['city'])
+            : null;
+
+        $country = ! empty($fixture['league']['country'])
+            ? trim($fixture['league']['country'])
+            : null;
+
+        $location = [
+            '@type' => 'Place',
+            'name' => $venueName,
+        ];
+
+        $address = ['@type' => 'PostalAddress'];
+        if ($venueCity) {
+            $address['addressLocality'] = $venueCity;
+        }
+        if ($country) {
+            $address['addressCountry'] = $country;
+        }
+        if (! empty($address['addressLocality']) || ! empty($address['addressCountry'])) {
+            $location['address'] = $address;
+        }
+
         $event = [
             '@context' => 'https://schema.org',
             '@type' => 'SportsEvent',
             'name' => $homeName.' vs '.$awayName,
+            'description' => $description,
             'url' => $url,
             'sport' => 'Football',
+            'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
             'eventStatus' => $this->eventStatus($fixture['fixture']['status']['short'] ?? null),
+            'location' => $location,
             'competitor' => [
                 ['@type' => 'SportsTeam', 'name' => $homeName],
                 ['@type' => 'SportsTeam', 'name' => $awayName],
             ],
         ];
 
+        $startDate = null;
         if (! empty($fixture['fixture']['date'])) {
-            $event['startDate'] = Carbon::parse($fixture['fixture']['date'])->toIso8601String();
+            try {
+                $startDate = Carbon::parse($fixture['fixture']['date']);
+            } catch (\Throwable $e) {
+                $startDate = null;
+            }
         }
 
-        if (! empty($fixture['fixture']['venue']['name'])) {
-            $event['location'] = ['@type' => 'Place', 'name' => $fixture['fixture']['venue']['name']];
+        if (! $startDate && $prediction && $prediction->match_date) {
+            $startDate = $prediction->match_date instanceof Carbon
+                ? $prediction->match_date
+                : Carbon::parse($prediction->match_date);
+        }
+
+        if ($startDate) {
+            $event['startDate'] = $startDate->toIso8601String();
+            $event['endDate'] = $startDate->copy()->addMinutes(110)->toIso8601String();
+        }
+
+        $images = array_values(array_filter([
+            $fixture['teams']['home']['logo'] ?? null,
+            $fixture['teams']['away']['logo'] ?? null,
+            $fixture['league']['logo'] ?? null,
+        ]));
+
+        if (! empty($images)) {
+            $event['image'] = $images;
+        }
+
+        if ($leagueName) {
+            $organizer = [
+                '@type' => 'Organization',
+                'name' => $leagueName,
+            ];
+            if (! empty($fixture['league']['logo'])) {
+                $organizer['logo'] = $fixture['league']['logo'];
+            }
+            $event['organizer'] = $organizer;
         }
 
         $items = [
