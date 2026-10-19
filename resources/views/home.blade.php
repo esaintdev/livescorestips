@@ -225,7 +225,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="bm-article-card-h">
                             <a href="{{ route('blog.show', $article->slug) }}" class="bm-article-img-h"
-                                style="background-image: url('{{ $article->image ? asset($article->image) : asset('images/logo.png') }}')">
+                                style="background-image: url('{{ $article->image_url ?? asset('images/logo.png') }}')">
                             </a>
                             <div class="bm-article-body-h">
                                 <div class="bm-article-meta-h">

@@ -30,7 +30,7 @@
                 <div class="col-md-6 col-lg-4 mb-4">
                     <div class="bm-article-card h-100">
                         <div class="bm-article-img-wrapper position-relative">
-                            <div class="bm-article-img" style="background-image: url('{{ $post->image ? (Str::contains($post->image, 'http') ? $post->image : '/articles/' . basename($post->image)) : asset('images/logo.png') }}')"></div>
+                            <div class="bm-article-img" style="background-image: url('{{ $post->image_url ?? asset('images/logo.png') }}')"></div>
                             @if($post->category)
                                 <a href="{{ route('blog.show', $post->category->slug) }}" class="bm-article-cat-badge">
                                     {{ $post->category->name }}

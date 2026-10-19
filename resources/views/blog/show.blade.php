@@ -5,9 +5,7 @@
 @section('keywords', $post->meta_keywords ?? '')
 
 @php
-    $ogImage = $post->image
-        ? (Str::contains($post->image, 'http') ? $post->image : asset('articles/' . basename($post->image)))
-        : asset('images/icon.png');
+    $ogImage = $post->image_url ?? asset('images/icon.png');
     $ogDescription = $post->meta_description ?? Str::limit(strip_tags($post->content), 160);
 @endphp
 
@@ -46,9 +44,9 @@
             </header>
 
             {{-- Featured Image --}}
-            @if($post->image)
+            @if($post->image_url)
                 <div class="bm-article-detail-image">
-                    <img src="{{ Str::contains($post->image, 'http') ? $post->image : '/articles/' . basename($post->image) }}" alt="{{ $post->title }}">
+                    <img src="{{ $post->image_url }}" alt="{{ $post->title }}">
                 </div>
             @endif
 
@@ -86,7 +84,7 @@
                         <div class="col-md-4 mb-4">
                             <div class="bm-article-card h-100">
                                 <div class="bm-article-img-wrapper position-relative">
-                                    <div class="bm-article-img" style="background-image: url('{{ $related->image ? (Str::contains($related->image, 'http') ? $related->image : '/articles/' . basename($related->image)) : asset('images/logo.png') }}')"></div>
+                                    <div class="bm-article-img" style="background-image: url('{{ $related->image_url ?? asset('images/logo.png') }}')"></div>
                                 </div>
                                 <div class="bm-article-body">
                                     <span class="bm-article-date">{{ \Carbon\Carbon::parse($related->published_at)->format('M d, Y') }}</span>

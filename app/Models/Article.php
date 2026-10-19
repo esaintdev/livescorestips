@@ -42,4 +42,25 @@ class Article extends Model
     {
         return Str::limit(strip_tags($this->content), 200);
     }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        if (Str::startsWith($this->image, ['http://', 'https://'])) {
+            return $this->image;
+        }
+
+        if (Str::startsWith($this->image, 'calmify/')) {
+            return asset($this->image);
+        }
+
+        if (Str::startsWith($this->image, ['storage/', '/storage/'])) {
+            return asset(ltrim($this->image, '/'));
+        }
+
+        return asset('articles/' . basename($this->image));
+    }
 }

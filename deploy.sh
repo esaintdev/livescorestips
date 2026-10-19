@@ -85,6 +85,8 @@ EXCLUDES=(
     --exclude='hot'
     --exclude='public/articles'
     --exclude='template/'
+    --exclude='app-mobile/'
+    --exclude='promo/'
 )
 
 if $DRY_RUN; then
@@ -227,6 +229,8 @@ fi
 
 # Storage link
 "$PHP_BIN" artisan storage:link --force 2>/dev/null || true
+mkdir -p calmify
+ln -sfn "${HOME}/${REMOTE_SUBDIR}/calmify" "${HOME}/${REMOTE_SUBDIR}/storage/calmify" 2>/dev/null || true
 
 # Database
 "$PHP_BIN" artisan migrate --force --no-interaction

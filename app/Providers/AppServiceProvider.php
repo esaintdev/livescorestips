@@ -2,11 +2,14 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use App\Listeners\CopyCalmifyPost;
+use Calmify\Laravel\Events\PostReceived;
 use Illuminate\Pagination\Paginator;
-use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
         URL::forceScheme('https');
 
         Paginator::useBootstrap();
+
+        Event::listen(PostReceived::class, CopyCalmifyPost::class);
 
         try {
             if (\Schema::hasTable('settings')) {
