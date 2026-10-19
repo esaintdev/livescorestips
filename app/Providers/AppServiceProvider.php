@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Listeners\CopyCalmifyPost;
+use App\Listeners\HideCalmifyPost;
 use Calmify\Laravel\Events\PostReceived;
+use Calmify\Laravel\Events\PostUnpublished;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -31,6 +33,10 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useBootstrap();
 
         Event::listen(PostReceived::class, CopyCalmifyPost::class);
+
+        if (class_exists(PostUnpublished::class)) {
+            Event::listen(PostUnpublished::class, HideCalmifyPost::class);
+        }
 
         try {
             if (\Schema::hasTable('settings')) {
