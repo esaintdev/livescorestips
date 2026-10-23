@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Prediction;
 use App\Services\ApiFootballService;
 use App\Services\MatchContentService;
+use App\Services\MatchPageDataService;
 use App\Services\PredictionResultService;
 use Carbon\Carbon;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -17,14 +18,18 @@ class FixtureController extends Controller
 
     protected $resultService;
 
+    protected $pageData;
+
     public function __construct(
         ApiFootballService $apiService,
         MatchContentService $contentService,
-        PredictionResultService $resultService
+        PredictionResultService $resultService,
+        MatchPageDataService $pageData
     ) {
         $this->apiService = $apiService;
         $this->contentService = $contentService;
         $this->resultService = $resultService;
+        $this->pageData = $pageData;
     }
 
     /**
@@ -140,62 +145,16 @@ class FixtureController extends Controller
     {
         $homeTeamId = $fixture['teams']['home']['id'] ?? null;
         $awayTeamId = $fixture['teams']['away']['id'] ?? null;
-        $leagueId = $fixture['league']['id'] ?? ($prediction->league_id ?? null);
-        $season = $fixture['league']['season'] ?? null;
 
-        $homeForm = $prediction->home_form ?? [];
-        $awayForm = $prediction->away_form ?? [];
-        $headToHead = [];
-        $standings = [];
-        $homeStats = null;
-        $awayStats = null;
-
-        // Provider enrichments are all best-effort.
-        if ($homeTeamId && $awayTeamId) {
-            try {
-                $homeForm = $this->apiService->fetchTeamForm($homeTeamId, 5) ?: $homeForm;
-                $awayForm = $this->apiService->fetchTeamForm($awayTeamId, 5) ?: $awayForm;
-            } catch (\Exception $e) {
-                \Log::warning('Failed to fetch team forms', ['error' => $e->getMessage()]);
-            }
-
-            try {
-                $headToHead = $this->apiService->fetchHeadToHead($homeTeamId, $awayTeamId, 5) ?: [];
-            } catch (\Exception $e) {
-                \Log::warning('Failed to fetch head-to-head', ['error' => $e->getMessage()]);
-            }
-        }
-
-        if ($leagueId && $season) {
-            try {
-                $allGroups = $this->apiService->fetchLeagueStandings($leagueId, $season, true);
-                foreach ($allGroups as $group) {
-                    foreach ($group as $team) {
-                        if (($homeTeamId && $team['team']['id'] == $homeTeamId) || ($awayTeamId && $team['team']['id'] == $awayTeamId)) {
-                            $standings = $group;
-                            break 2;
-                        }
-                    }
-                }
-                if (empty($standings) && ! empty($allGroups)) {
-                    $standings = $allGroups[0];
-                }
-            } catch (\Exception $e) {
-                \Log::warning('Failed to fetch standings', ['error' => $e->getMessage()]);
-                $standings = [];
-            }
-        }
-
-        if ($homeTeamId && $awayTeamId && $leagueId && $season) {
-            try {
-                $homeStats = $this->apiService->fetchTeamStatistics($homeTeamId, $leagueId, $season);
-                $awayStats = $this->apiService->fetchTeamStatistics($awayTeamId, $leagueId, $season);
-            } catch (\Exception $e) {
-                \Log::warning('Failed to fetch team statistics', ['error' => $e->getMessage()]);
-                $homeStats = null;
-                $awayStats = null;
-            }
-        }
+        // Form, H2H, standings and team stats: one cached snapshot per fixture
+        [
+            'homeForm' => $homeForm,
+            'awayForm' => $awayForm,
+            'headToHead' => $headToHead,
+            'standings' => $standings,
+            'homeStats' => $homeStats,
+            'awayStats' => $awayStats,
+        ] = $this->pageData->get($fixture, $prediction);
 
         // Settlement result (shared service — never duplicated in the view).
         $predictionResult = null;

@@ -62,38 +62,44 @@ class FillAllCategories extends Command
             $currentDate = $startDate->copy()->addDays($i)->format('Y-m-d');
             $this->info("\n--- Filling all categories for $currentDate (Target: $limitPerCategory games per category) ---");
 
-            $categories = explode(',', $this->option('categories'));
+            try {
+                $categories = explode(',', $this->option('categories'));
 
-            // 1. Fetch Fixtures and Odds ONCE
-            $this->info('Fetching eligible fixtures and bulk odds...');
-            $fixtures = $this->fetchEligibleFixtures($currentDate);
+                // 1. Fetch Fixtures and Odds ONCE
+                $this->info('Fetching eligible fixtures and bulk odds...');
+                $fixtures = $this->fetchEligibleFixtures($currentDate);
 
-            if (empty($fixtures)) {
-                $this->error("No eligible fixtures found for $currentDate.");
+                if (empty($fixtures)) {
+                    $this->error("No eligible fixtures found for $currentDate.");
 
-                continue;
-            }
-
-            // Move any existing records for these fixtures onto this date instead
-            // of creating duplicate date-variant URLs when a fixture is rescheduled.
-            $this->syncRescheduledFixtures($fixtures, $currentDate);
-
-            $bulkOdds = $this->apiService->fetchOddsByDate($currentDate, 11);
-            $oddsMap = [];
-            foreach ($bulkOdds as $entry) {
-                $fId = $entry['fixture']['id'] ?? null;
-                if ($fId) {
-                    $oddsMap[$fId] = $entry;
+                    continue;
                 }
-            }
 
-            // Shuffle fixtures to give every league an equal chance
-            shuffle($fixtures);
+                // Move any existing records for these fixtures onto this date instead
+                // of creating duplicate date-variant URLs when a fixture is rescheduled.
+                $this->syncRescheduledFixtures($fixtures, $currentDate);
 
-            $this->info('Processing '.count($fixtures).' fixtures across '.count($categories).' categories.');
+                $bulkOdds = $this->apiService->fetchOddsByDate($currentDate, 11);
+                $oddsMap = [];
+                foreach ($bulkOdds as $entry) {
+                    $fId = $entry['fixture']['id'] ?? null;
+                    if ($fId) {
+                        $oddsMap[$fId] = $entry;
+                    }
+                }
 
-            foreach ($categories as $category) {
-                $this->fillCategory($currentDate, trim($category), $limitPerCategory, $fixtures, $oddsMap);
+                // Shuffle fixtures to give every league an equal chance
+                shuffle($fixtures);
+
+                $this->info('Processing '.count($fixtures).' fixtures across '.count($categories).' categories.');
+
+                foreach ($categories as $category) {
+                    $this->fillCategory($currentDate, trim($category), $limitPerCategory, $fixtures, $oddsMap);
+                }
+            } catch (\Throwable $e) {
+                // Keep going so one bad date never leaves the following dates empty
+                $this->error("Failed filling $currentDate: ".$e->getMessage());
+                report($e);
             }
         }
 
@@ -142,44 +148,51 @@ class FillAllCategories extends Command
                 continue;
             }
 
-            // Get odds — bulk first, individual fallback for EVERY league
-            $bulkEntry = $oddsMap[$fixtureId] ?? null;
-            if (! $bulkEntry) {
-                $singleOdds = $this->apiService->fetchOddsByFixture($fixtureId);
-                $bulkEntry = $singleOdds[0] ?? null;
-            }
-
-            if (! $bulkEntry) {
-                continue;
-            }
-
-            // Analyze match to see if it fits the category
-            $potentialPredictions = $this->predictionService->analyzeMatch($fixture);
-
-            // Find the prediction for the current category
-            $predictionData = null;
-            foreach ($potentialPredictions as $pp) {
-                if ($pp['category'] === $category) {
-                    $predictionData = $pp;
-                    break;
+            // One failing fixture (API error, bad data) must not abort the
+            // whole run and leave later dates empty.
+            try {
+                // Get odds — bulk first, individual fallback for EVERY league
+                $bulkEntry = $oddsMap[$fixtureId] ?? null;
+                if (! $bulkEntry) {
+                    $singleOdds = $this->apiService->fetchOddsByFixture($fixtureId);
+                    $bulkEntry = $singleOdds[0] ?? null;
                 }
-            }
 
-            if ($predictionData) {
-                // Extract odds
-                $odds = $this->predictionService->extractOddsPublic($bulkEntry, $predictionData['market_type'], $predictionData['tip']);
-
-                if ($odds && $odds['value'] >= 1.05) {
-                    $this->predictionService->createPredictionRecord(
-                        $fixture,
-                        $predictionData,
-                        $odds,
-                        $predictionData['home_form'] ?? [],
-                        $predictionData['away_form'] ?? []
-                    );
-                    $created++;
-                    $this->line("    ✓ Created [$category] $matchName (".($existingCount + $created)."/$limit)");
+                if (! $bulkEntry) {
+                    continue;
                 }
+
+                // Analyze match to see if it fits the category
+                $potentialPredictions = $this->predictionService->analyzeMatch($fixture);
+
+                // Find the prediction for the current category
+                $predictionData = null;
+                foreach ($potentialPredictions as $pp) {
+                    if ($pp['category'] === $category) {
+                        $predictionData = $pp;
+                        break;
+                    }
+                }
+
+                if ($predictionData) {
+                    // Extract odds
+                    $odds = $this->predictionService->extractOddsPublic($bulkEntry, $predictionData['market_type'], $predictionData['tip']);
+
+                    if ($odds && $odds['value'] >= 1.05) {
+                        $this->predictionService->createPredictionRecord(
+                            $fixture,
+                            $predictionData,
+                            $odds,
+                            $predictionData['home_form'] ?? [],
+                            $predictionData['away_form'] ?? []
+                        );
+                        $created++;
+                        $this->line("    ✓ Created [$category] $matchName (".($existingCount + $created)."/$limit)");
+                    }
+                }
+            } catch (\Throwable $e) {
+                $this->warn("    ! Skipped $matchName: ".$e->getMessage());
+                report($e);
             }
         }
 

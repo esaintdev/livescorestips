@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\Setting;
 use Carbon\Carbon;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -42,13 +45,47 @@ class ApiFootballService
     }
 
     /**
+     * Shared API client. Retries rate limits (429), 5xx and connection errors
+     * with a real backoff, then returns the failed response instead of
+     * throwing, so callers fall through to their `successful()` checks.
+     * Console jobs wait longer (the limit is per minute); page requests only
+     * retry once so visitors and crawlers are never held for seconds.
+     */
+    protected function http(int $timeout = 30): PendingRequest
+    {
+        $console = app()->runningInConsole();
+
+        return Http::timeout($console ? max($timeout, 30) : $timeout)
+            ->withHeaders($this->getHeaders())
+            ->retry(
+                $console ? [2000, 5000, 15000, 30000] : [300],
+                when: function ($e) {
+                    if ($e instanceof ConnectionException) {
+                        return true;
+                    }
+
+                    return $e instanceof RequestException
+                        && in_array($e->response->status(), [429, 500, 502, 503, 504], true);
+                },
+                throw: false
+            );
+    }
+
+    /**
      * Fetch fixtures by date and optional league
      */
     public function fetchFixtures($date, $leagueId = null)
     {
         $cacheKey = "fixtures_{$date}".($leagueId ? "_{$leagueId}" : '');
 
-        return Cache::remember($cacheKey, 3600, function () use ($date, $leagueId) {
+        // Empty/failed responses must not be cached (a rate-limited call would
+        // otherwise hide a whole day's fixtures for an hour), so get/put manually.
+        $cached = Cache::get($cacheKey);
+        if (! empty($cached)) {
+            return $cached;
+        }
+
+        $data = (function () use ($date, $leagueId) {
             $isMonth = strlen($date) === 7; // format "YYYY-MM"
             $dateObj = Carbon::parse($isMonth ? $date.'-01' : $date);
 
@@ -76,24 +113,21 @@ class ApiFootballService
             }
 
             // Use correct headers with increased timeout for large responses
-            $response = Http::timeout(60)
-                ->retry(2, 100)
-                ->withHeaders($this->getHeaders())
+            $response = $this->http(60)
                 ->get($this->baseUrl.'/fixtures', $params);
 
             if ($response->successful()) {
-                $data = $response->json()['response'] ?? [];
-
-                // Don't cache empty results — always retry on next request
-                if (empty($data)) {
-                    Cache::forget("fixtures_{$date}".($leagueId ? "_{$leagueId}" : ''));
-                }
-
-                return $data;
+                return $response->json()['response'] ?? [];
             }
 
             return [];
-        });
+        })();
+
+        if (! empty($data)) {
+            Cache::put($cacheKey, $data, 3600);
+        }
+
+        return $data;
     }
 
     /**
@@ -145,7 +179,7 @@ class ApiFootballService
                 $params['bookmaker'] = $bookmaker;
             }
 
-            $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
+            $response = $this->http(30)
                 ->get($this->baseUrl.'/odds', $params);
 
             if ($response->successful()) {
@@ -169,7 +203,7 @@ class ApiFootballService
             $totalPages = 1;
 
             do {
-                $response = Http::timeout(60)->withHeaders($this->getHeaders())
+                $response = $this->http(60)
                     ->get($this->baseUrl.'/odds', [
                         'date' => $date,
                         'bookmaker' => $bookmakerId,
@@ -198,7 +232,7 @@ class ApiFootballService
         $cacheKey = "fixture_odds_{$fixtureId}";
 
         return Cache::remember($cacheKey, 3600, function () use ($fixtureId) {
-            $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
+            $response = $this->http(30)
                 ->get($this->baseUrl.'/odds', [
                     'fixture' => $fixtureId,
                 ]);
@@ -230,7 +264,7 @@ class ApiFootballService
             $fixtures = [];
 
             foreach (array_unique($seasons) as $season) {
-                $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
+                $response = $this->http(30)
                     ->get($this->baseUrl.'/fixtures', [
                         'team' => $teamId,
                         'last' => $last,
@@ -279,7 +313,7 @@ class ApiFootballService
             $fixtures = [];
 
             foreach (array_unique($seasons) as $season) {
-                $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
+                $response = $this->http(30)
                     ->get($this->baseUrl.'/fixtures', [
                         'team' => $teamId,
                         'last' => $last,
@@ -403,7 +437,7 @@ class ApiFootballService
             return $cached;
         }
 
-        $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
+        $response = $this->http(30)
             ->get($this->baseUrl.'/fixtures', [
                 'id' => $fixtureId,
             ]);
@@ -416,8 +450,10 @@ class ApiFootballService
                 $status = $fixture['fixture']['status']['short'] ?? 'NS';
                 $isLive = in_array($status, ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE']);
 
-                // 60 seconds if live, 3600 seconds (1 hour) otherwise to save API quota
-                $ttl = $isLive ? 60 : 3600;
+                // 60 seconds if live, 30 days once finished (final, never changes),
+                // 1 hour otherwise to save API quota
+                $isFinished = in_array($status, MatchPageDataService::FINISHED_STATUSES, true);
+                $ttl = $isLive ? 60 : ($isFinished ? 30 * 86400 : 3600);
 
                 Cache::put($cacheKey, $fixture, $ttl);
             }
@@ -436,7 +472,7 @@ class ApiFootballService
         $cacheKey = "h2h_{$team1Id}_{$team2Id}_{$last}";
 
         return Cache::remember($cacheKey, 3600, function () use ($team1Id, $team2Id, $last) {
-            $response = Http::timeout(30)->retry(3, 100)->withHeaders($this->getHeaders())
+            $response = $this->http(30)
                 ->get($this->baseUrl.'/fixtures/headtohead', [
                     'h2h' => "{$team1Id}-{$team2Id}",
                     'last' => $last,
@@ -467,7 +503,7 @@ class ApiFootballService
             $allGroups = [];
 
             try {
-                $response = Http::timeout(5)->withHeaders($this->getHeaders())
+                $response = $this->http(5)
                     ->get($this->baseUrl.'/standings', [
                         'league' => $leagueId,
                         'season' => $season,
@@ -497,7 +533,7 @@ class ApiFootballService
 
         return Cache::remember($cacheKey, 21600, function () use ($teamId, $leagueId, $season) {
             try {
-                $response = Http::timeout(5)->withHeaders($this->getHeaders())
+                $response = $this->http(5)
                     ->get($this->baseUrl.'/teams/statistics', [
                         'team' => $teamId,
                         'league' => $leagueId,
@@ -526,7 +562,7 @@ class ApiFootballService
 
         return Cache::remember($cacheKey, 60, function () { // Cache for 60 seconds
             try {
-                $response = Http::timeout(5)->withHeaders($this->getHeaders())
+                $response = $this->http(5)
                     ->get($this->baseUrl.'/fixtures', ['live' => 'all']);
 
                 if ($response->successful()) {
@@ -559,7 +595,7 @@ class ApiFootballService
 
         return Cache::remember($cacheKey, 7200, function () use ($leagueId, $count) {
             try {
-                $response = Http::timeout(5)->withHeaders($this->getHeaders())
+                $response = $this->http(5)
                     ->get($this->baseUrl.'/fixtures', [
                         'league' => $leagueId,
                         'last' => $count,
@@ -586,7 +622,7 @@ class ApiFootballService
 
         return Cache::remember($cacheKey, 7200, function () use ($leagueId, $count) {
             try {
-                $response = Http::timeout(5)->withHeaders($this->getHeaders())
+                $response = $this->http(5)
                     ->get($this->baseUrl.'/fixtures', [
                         'league' => $leagueId,
                         'next' => $count,
@@ -619,7 +655,7 @@ class ApiFootballService
         $cacheKey = "league_info_{$leagueId}";
 
         return Cache::remember($cacheKey, 86400, function () use ($leagueId) {
-            $response = Http::withHeaders($this->getHeaders())
+            $response = $this->http(30)
                 ->get($this->baseUrl.'/leagues', [
                     'id' => $leagueId,
                 ]);
@@ -656,7 +692,7 @@ class ApiFootballService
             }
         }
 
-        $response = Http::timeout(15)->retry(2, 100)->withHeaders($this->getHeaders())
+        $response = $this->http(15)
             ->get($this->baseUrl.'/leagues');
 
         if ($response->successful()) {
@@ -687,7 +723,7 @@ class ApiFootballService
             }
         }
 
-        $response = Http::timeout(15)->retry(2, 100)->withHeaders($this->getHeaders())
+        $response = $this->http(15)
             ->get($this->baseUrl.'/countries');
 
         if ($response->successful()) {

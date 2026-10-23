@@ -10,21 +10,26 @@ Artisan::command('inspire', function () {
 // Schedule prediction status update every 15 minutes
 Illuminate\Support\Facades\Schedule::command('prediction:update-status')->everyFifteenMinutes();
 
-// Schedule auto-generation of predictions daily at 2 AM
-// This ensures all 11 categories have 15 games each for the next 3 days
-Illuminate\Support\Facades\Schedule::command('prediction:fill-all --limit=15 --days=3')->dailyAt('02:00');
+// Fill every category (15 games each) for the next 3 days. Runs every 6 hours:
+// the command skips categories that are already full, so repeat runs are cheap
+// and backfill any day a previous run could not complete.
+Illuminate\Support\Facades\Schedule::command('prediction:fill-all --limit=15 --days=3')
+    ->cron('0 2,8,14,20 * * *')
+    ->withoutOverlapping(120);
+
+// Pre-build match page data (form, H2H, standings, stats) so visitors and
+// crawlers hit a warm cache instead of 7-9 sequential API calls.
+Illuminate\Support\Facades\Schedule::command('prediction:warm-pages')
+    ->cron('30 */2 * * *')
+    ->withoutOverlapping(120);
 
 // Mark banker predictions daily at 3 AM (after fill-all completes)
 Illuminate\Support\Facades\Schedule::command('prediction:mark-bankers --max-bankers=5')
     ->dailyAt('03:00')
     ->withoutOverlapping(30);
 
-// Schedule World Cup 2026 prediction generation daily at midnight
-// Checks all 72 World Cup fixtures (June 11-28) daily and generates predictions
-// as odds become available closer to match dates
-Illuminate\Support\Facades\Schedule::command('prediction:auto-generate --count=100 --days=30 --league=1')
-    ->dailyAt('00:00')
-    ->withoutOverlapping(60);
+// World Cup 2026 generation (league 1) — DISABLED: the tournament ended in
+// July 2026, so the nightly run only spent API calls. Re-add for the next one.
 
 // Sky Sports news import — DISABLED.
 // The articles imported by SkySportsNewsService were removed from the site and
