@@ -18,10 +18,12 @@ Illuminate\Support\Facades\Schedule::command('prediction:fill-all --limit=15 --d
     ->withoutOverlapping(120);
 
 // Pre-build match page data (form, H2H, standings, stats) so visitors and
-// crawlers hit a warm cache instead of 7-9 sequential API calls.
+// crawlers hit a warm cache instead of 7-9 sequential API calls. Short runs
+// (~2 min budget) every 30 minutes: the host kills long-running processes.
 Illuminate\Support\Facades\Schedule::command('prediction:warm-pages')
-    ->cron('30 */2 * * *')
-    ->withoutOverlapping(120);
+    ->cron('15,45 * * * *')
+    ->withoutOverlapping(10)
+    ->runInBackground();
 
 // Mark banker predictions daily at 3 AM (after fill-all completes)
 Illuminate\Support\Facades\Schedule::command('prediction:mark-bankers --max-bankers=5')

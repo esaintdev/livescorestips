@@ -59,9 +59,19 @@ class MatchPageDataService
         }
 
         $data = $this->build($fixture, $prediction);
-        Cache::put($key, $data, $this->ttl($fixture, $data));
+        $ttl = $this->ttl($fixture, $data);
+        Cache::put($key, $data, $ttl);
+        Cache::put($key.'_built', time(), $ttl);
 
         return $data;
+    }
+
+    /**
+     * Unix time the fixture's snapshot was built, or null when there is none.
+     */
+    public static function builtAt($fixtureId): ?int
+    {
+        return Cache::get(self::cacheKey($fixtureId).'_built');
     }
 
     protected function ttl(array $fixture, array $data): int
