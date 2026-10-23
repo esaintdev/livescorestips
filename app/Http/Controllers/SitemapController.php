@@ -168,6 +168,8 @@ class SitemapController extends Controller
                 })->first();
             })
             ->filter()
+            // Only leagues people search for; other match pages are noindex
+            ->filter(fn ($prediction) => league_is_indexable($prediction->league_id))
             ->values()
             ->sortByDesc('match_date');
 

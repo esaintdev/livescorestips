@@ -6,6 +6,7 @@ use App\Http\Controllers\FixtureController;
 use App\Models\Prediction;
 use App\Services\ApiFootballService;
 use App\Services\MatchContentService;
+use App\Services\MatchPageDataService;
 use App\Services\PredictionResultService;
 use Carbon\Carbon;
 use Mockery;
@@ -22,8 +23,9 @@ class StructuredDataUnitTest extends TestCase
         $apiService = Mockery::mock(ApiFootballService::class);
         $contentService = Mockery::mock(MatchContentService::class);
         $resultService = Mockery::mock(PredictionResultService::class);
+        $pageData = Mockery::mock(MatchPageDataService::class);
 
-        $this->controller = new FixtureController($apiService, $contentService, $resultService);
+        $this->controller = new FixtureController($apiService, $contentService, $resultService, $pageData);
     }
 
     public function test_structured_data_includes_venue_when_provided(): void

@@ -30,7 +30,7 @@ class MatchPageDataService
 
     public static function cacheKey($fixtureId): string
     {
-        return "match_page_v1_{$fixtureId}";
+        return "match_page_v2_{$fixtureId}";
     }
 
     public static function isFinished(array $fixture): bool
@@ -39,7 +39,7 @@ class MatchPageDataService
     }
 
     /**
-     * @return array{homeForm: array, awayForm: array, headToHead: array, standings: array, homeStats: ?array, awayStats: ?array}
+     * @return array{homeForm: array, awayForm: array, homeRecent: array, awayRecent: array, headToHead: array, standings: array, homeStats: ?array, awayStats: ?array}
      */
     public function get(array $fixture, ?Prediction $prediction, bool $refresh = false): array
     {
@@ -89,6 +89,8 @@ class MatchPageDataService
 
         $homeForm = $prediction->home_form ?? [];
         $awayForm = $prediction->away_form ?? [];
+        $homeRecent = [];
+        $awayRecent = [];
         $headToHead = [];
         $standings = [];
         $homeStats = null;
@@ -99,6 +101,8 @@ class MatchPageDataService
             try {
                 $homeForm = $this->apiService->fetchTeamForm($homeTeamId, 5) ?: $homeForm;
                 $awayForm = $this->apiService->fetchTeamForm($awayTeamId, 5) ?: $awayForm;
+                $homeRecent = $this->apiService->fetchTeamRecentFixtures($homeTeamId, 5);
+                $awayRecent = $this->apiService->fetchTeamRecentFixtures($awayTeamId, 5);
             } catch (\Exception $e) {
                 Log::warning('Failed to fetch team forms', ['error' => $e->getMessage()]);
             }
@@ -141,6 +145,6 @@ class MatchPageDataService
             }
         }
 
-        return compact('homeForm', 'awayForm', 'headToHead', 'standings', 'homeStats', 'awayStats');
+        return compact('homeForm', 'awayForm', 'homeRecent', 'awayRecent', 'headToHead', 'standings', 'homeStats', 'awayStats');
     }
 }

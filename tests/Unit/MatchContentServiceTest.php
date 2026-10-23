@@ -106,4 +106,62 @@ class MatchContentServiceTest extends TestCase
         $this->assertSame('over-1-5-goals', $this->service->categorySlug($this->prediction(['category' => 'Over 1.5 Goals'])));
         $this->assertNull($this->service->categorySlug($this->prediction(['category' => 'Made Up Market'])));
     }
+
+    private function match(int $homeId, int $awayId, int $hg, int $ag, string $date = '2026-09-01T18:00:00+00:00'): array
+    {
+        return [
+            'fixture' => ['id' => rand(1, 99999), 'date' => $date],
+            'league' => ['id' => 39, 'name' => 'Premier League'],
+            'teams' => ['home' => ['id' => $homeId, 'name' => "Team {$homeId}"], 'away' => ['id' => $awayId, 'name' => "Team {$awayId}"]],
+            'goals' => ['home' => $hg, 'away' => $ag],
+        ];
+    }
+
+    public function test_h2h_summary_attributes_wins_by_team_id_across_venues(): void
+    {
+        $h2h = [
+            $this->match(1, 2, 2, 0, '2026-05-01T18:00:00+00:00'),
+            $this->match(2, 1, 3, 1),   // team 2 wins at home
+            $this->match(2, 1, 0, 1),   // team 1 wins away
+            $this->match(1, 2, 1, 1),
+        ];
+
+        $text = $this->service->h2hSummary($h2h, 1, 2, 'Home City', 'Away Town');
+
+        $this->assertStringContainsString('last 4 meetings, Home City have won 2, Away Town have won 1 and 1 ended level', $text);
+        $this->assertStringContainsString('1 May 2026', $text);
+        $this->assertNull($this->service->h2hSummary([], 1, 2, 'Home City', 'Away Town'));
+    }
+
+    public function test_odds_value_compares_implied_probability(): void
+    {
+        $this->assertStringContainsString('generous', $this->service->oddsValue($this->prediction(['odds' => 2.0, 'probability' => 60])));
+        $this->assertStringContainsString('slightly more likely', $this->service->oddsValue($this->prediction(['odds' => 1.25, 'probability' => 70])));
+        $this->assertStringContainsString('in line', $this->service->oddsValue($this->prediction(['odds' => 1.25, 'probability' => 80])));
+        $this->assertNull($this->service->oddsValue($this->prediction(['odds' => null])));
+    }
+
+    public function test_recent_rows_and_why_this_tip_use_real_scores(): void
+    {
+        $recent = [$this->match(1, 3, 3, 1), $this->match(4, 1, 2, 2), $this->match(1, 5, 0, 1)];
+
+        $rows = $this->service->recentRows($recent, 1);
+        $this->assertSame(['W', 'D', 'L'], array_column($rows, 'result'));
+        $this->assertSame('A', $rows[1]['venue']);
+
+        $points = $this->service->whyThisTip($this->prediction(['tip' => 'Over 2.5', 'category' => 'Over 2.5 Goals']), [
+            'home_recent' => $recent, 'home_team_id' => 1,
+        ]);
+        $this->assertContains("2 of Home City's last 3 matches went over 2.5 goals.", $points);
+    }
+
+    public function test_why_this_tip_and_faq_without_data_do_not_fabricate(): void
+    {
+        $this->assertSame([], $this->service->whyThisTip($this->prediction()));
+
+        $faq = $this->service->faq($this->prediction(), []);
+        $this->assertCount(1, $faq);
+        $this->assertSame('What is the Home City vs Away Town prediction?', $faq[0]['q']);
+        $this->assertStringContainsString('Over 1.5 (Over 1.5 Goals), with a probability of 80% at odds of 1.25', $faq[0]['a']);
+    }
 }

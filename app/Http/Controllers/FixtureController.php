@@ -150,6 +150,8 @@ class FixtureController extends Controller
         [
             'homeForm' => $homeForm,
             'awayForm' => $awayForm,
+            'homeRecent' => $homeRecent,
+            'awayRecent' => $awayRecent,
             'headToHead' => $headToHead,
             'standings' => $standings,
             'homeStats' => $homeStats,
@@ -177,6 +179,13 @@ class FixtureController extends Controller
         $factors = [];
         $related = collect();
         $categorySlug = null;
+        $preview = [];
+        $h2hSummary = null;
+        $oddsValue = null;
+        $whyThisTip = [];
+        $faq = [];
+        $homeRecentRows = [];
+        $awayRecentRows = [];
 
         if ($prediction) {
             $ctx = [
@@ -190,12 +199,22 @@ class FixtureController extends Controller
                 'away_team' => $fixture['teams']['away']['name'] ?? $prediction->away_team,
                 'home_team_id' => $homeTeamId,
                 'away_team_id' => $awayTeamId,
+                'home_recent' => $homeRecent,
+                'away_recent' => $awayRecent,
             ];
 
             $analysis = $this->contentService->analysis($prediction, $ctx);
             $factors = $this->contentService->factors($prediction, $ctx);
             $related = $this->contentService->related($prediction);
             $categorySlug = $this->contentService->categorySlug($prediction);
+
+            $preview = $this->contentService->preview($prediction, $fixture, $ctx);
+            $h2hSummary = $this->contentService->h2hSummary($headToHead, $homeTeamId, $awayTeamId, $ctx['home_team'], $ctx['away_team']);
+            $oddsValue = $this->contentService->oddsValue($prediction);
+            $whyThisTip = $this->contentService->whyThisTip($prediction, $ctx);
+            $faq = $this->contentService->faq($prediction, $fixture, $ctx, $predictionResult);
+            $homeRecentRows = $this->contentService->recentRows($homeRecent, $homeTeamId);
+            $awayRecentRows = $this->contentService->recentRows($awayRecent, $awayTeamId);
         }
 
         $comments = $prediction
@@ -203,6 +222,20 @@ class FixtureController extends Controller
             : collect();
 
         $structuredData = $this->structuredData($fixture, $prediction, $categorySlug);
+
+        if (! empty($faq)) {
+            $structuredData[] = [
+                '@context' => 'https://schema.org',
+                '@type' => 'FAQPage',
+                'mainEntity' => array_map(fn ($item) => [
+                    '@type' => 'Question',
+                    'name' => $item['q'],
+                    'acceptedAnswer' => ['@type' => 'Answer', 'text' => $item['a']],
+                ], $faq),
+            ];
+        }
+
+        $exploreLinks = $this->exploreLinks($fixture, $prediction);
 
         return view('fixture.show', compact(
             'fixture',
@@ -220,8 +253,43 @@ class FixtureController extends Controller
             'factors',
             'related',
             'categorySlug',
-            'structuredData'
+            'structuredData',
+            'preview',
+            'h2hSummary',
+            'oddsValue',
+            'whyThisTip',
+            'faq',
+            'homeRecentRows',
+            'awayRecentRows',
+            'exploreLinks'
         ));
+    }
+
+    /**
+     * Internal links from a match to its league and country hubs (the
+     * market hub is already linked from "Related Predictions").
+     *
+     * @return array<int, array{label: string, url: string}>
+     */
+    private function exploreLinks(array $fixture, ?Prediction $prediction): array
+    {
+        $links = [];
+        $leagueId = $fixture['league']['id'] ?? ($prediction->league_id ?? null);
+        $leagueName = $fixture['league']['name'] ?? ($prediction->league_name ?? null);
+
+        $popular = collect($this->apiService->getPopularLeagues())->firstWhere('id', (int) $leagueId);
+        if ($popular && ! str_starts_with($popular['name'], 'League #')) {
+            $links[] = ['label' => $popular['name'].' predictions', 'url' => route('league.show', ['id' => $popular['id'], 'slug' => $popular['slug']])];
+        }
+
+        $country = $prediction->league_country ?? null;
+        if ($country && $country !== 'World') {
+            $links[] = ['label' => str_replace('-', ' ', $country).' football predictions', 'url' => route('country.show', ['name' => $country])];
+        }
+
+        $links[] = ['label' => 'All football predictions today', 'url' => route('predictions.all')];
+
+        return $links;
     }
 
     /**

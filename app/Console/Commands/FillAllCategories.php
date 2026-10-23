@@ -88,8 +88,15 @@ class FillAllCategories extends Command
                     }
                 }
 
-                // Shuffle fixtures to give every league an equal chance
-                shuffle($fixtures);
+                // Indexable (searched-for) leagues first, so big matches get a
+                // prediction before slots go to minor leagues; shuffled within
+                // each group so no single league dominates.
+                $priority = array_values(array_filter($fixtures, fn ($f) => league_is_indexable($f['league']['id'] ?? null)));
+                $others = array_values(array_filter($fixtures, fn ($f) => ! league_is_indexable($f['league']['id'] ?? null)));
+                shuffle($priority);
+                shuffle($others);
+                $fixtures = array_merge($priority, $others);
+                $this->info(count($priority).' fixtures from indexable leagues, '.count($others).' others.');
 
                 $this->info('Processing '.count($fixtures).' fixtures across '.count($categories).' categories.');
 

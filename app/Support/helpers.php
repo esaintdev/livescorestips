@@ -50,3 +50,29 @@ if (! function_exists('meta_description')) {
         return rtrim($cut, " \t\n\r\0\x0B.,;:-");
     }
 }
+
+if (! function_exists('league_is_indexable')) {
+    /**
+     * Whether match pages of this league should be indexed by search engines
+     * (config/predictions.php "indexable_leagues" plus admin priority leagues).
+     */
+    function league_is_indexable($leagueId): bool
+    {
+        static $ids = null;
+
+        if ($ids === null) {
+            $ids = array_map('intval', config('predictions.indexable_leagues', []));
+            try {
+                $priority = \App\Models\Setting::get('priority_leagues', '');
+                foreach (array_filter(array_map('trim', explode(',', (string) $priority))) as $id) {
+                    $ids[] = (int) $id;
+                }
+            } catch (\Throwable $e) {
+                // Settings table unavailable (install/tests): config list only
+            }
+            $ids = array_flip($ids);
+        }
+
+        return $leagueId !== null && isset($ids[(int) $leagueId]);
+    }
+}

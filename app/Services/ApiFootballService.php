@@ -253,48 +253,78 @@ class ApiFootballService
         $cacheKey = "team_form_{$teamId}_{$last}";
 
         return Cache::remember($cacheKey, 3600, function () use ($teamId, $last) {
-            $currentYear = (int) date('Y');
-            $currentMonth = (int) date('n');
-
-            $seasons = [];
-            $seasons[] = ($currentMonth < 6) ? ($currentYear - 1) : $currentYear;
-            $seasons[] = ($currentMonth < 6) ? $currentYear : ($currentYear - 1);
-
-            $seen = [];
-            $fixtures = [];
-
-            foreach (array_unique($seasons) as $season) {
-                $response = $this->http(30)
-                    ->get($this->baseUrl.'/fixtures', [
-                        'team' => $teamId,
-                        'last' => $last,
-                        'season' => $season,
-                    ]);
-
-                if (! $response->successful()) {
-                    continue;
-                }
-
-                $seasonFixtures = $response->json()['response'] ?? [];
-
-                foreach ($seasonFixtures as $fixture) {
-                    $id = $fixture['fixture']['id'] ?? null;
-                    if ($id && ! isset($seen[$id])) {
-                        $seen[$id] = true;
-                        $fixtures[] = $fixture;
-                    }
-                }
-            }
-
-            if (! empty($fixtures)) {
-                usort($fixtures, function ($a, $b) {
-                    return strtotime($b['fixture']['date'] ?? '0') <=> strtotime($a['fixture']['date'] ?? '0');
-                });
-                $fixtures = array_slice($fixtures, 0, $last);
-            }
-
-            return $this->parseTeamForm($fixtures, $teamId);
+            return $this->parseTeamForm($this->fetchTeamRecentFixtures($teamId, $last), $teamId);
         });
+    }
+
+    /**
+     * Team's last N played fixtures, most recent first (shared by form and the
+     * match page "recent results"). Empty/failed responses are not cached.
+     */
+    public function fetchTeamRecentFixtures($teamId, $last = 5): array
+    {
+        $cacheKey = "team_recent_{$teamId}_{$last}";
+
+        $cached = Cache::get($cacheKey);
+        if (! empty($cached)) {
+            return $cached;
+        }
+
+        $currentYear = (int) date('Y');
+        $currentMonth = (int) date('n');
+
+        $seasons = [];
+        $seasons[] = ($currentMonth < 6) ? ($currentYear - 1) : $currentYear;
+        $seasons[] = ($currentMonth < 6) ? $currentYear : ($currentYear - 1);
+
+        $seen = [];
+        $fixtures = [];
+
+        foreach (array_unique($seasons) as $season) {
+            $response = $this->http(30)
+                ->get($this->baseUrl.'/fixtures', [
+                    'team' => $teamId,
+                    'last' => $last,
+                    'season' => $season,
+                ]);
+
+            if (! $response->successful()) {
+                continue;
+            }
+
+            $seasonFixtures = $response->json()['response'] ?? [];
+
+            foreach ($seasonFixtures as $fixture) {
+                $id = $fixture['fixture']['id'] ?? null;
+                if ($id && ! isset($seen[$id])) {
+                    $seen[$id] = true;
+                    $fixtures[] = $fixture;
+                }
+            }
+        }
+
+        if (empty($fixtures)) {
+            return [];
+        }
+
+        usort($fixtures, function ($a, $b) {
+            return strtotime($b['fixture']['date'] ?? '0') <=> strtotime($a['fixture']['date'] ?? '0');
+        });
+
+        // Keep only what the site uses, so the cached value stays small
+        $fixtures = array_map(fn ($f) => [
+            'fixture' => ['id' => $f['fixture']['id'] ?? null, 'date' => $f['fixture']['date'] ?? null],
+            'league' => ['id' => $f['league']['id'] ?? null, 'name' => $f['league']['name'] ?? null],
+            'teams' => [
+                'home' => ['id' => $f['teams']['home']['id'] ?? null, 'name' => $f['teams']['home']['name'] ?? null],
+                'away' => ['id' => $f['teams']['away']['id'] ?? null, 'name' => $f['teams']['away']['name'] ?? null],
+            ],
+            'goals' => ['home' => $f['goals']['home'] ?? null, 'away' => $f['goals']['away'] ?? null],
+        ], array_slice($fixtures, 0, $last));
+
+        Cache::put($cacheKey, $fixtures, 3600);
+
+        return $fixtures;
     }
 
     public function fetchTeamGoalMetrics($teamId, $last = 5)

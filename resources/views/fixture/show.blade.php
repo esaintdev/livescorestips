@@ -2,6 +2,8 @@
 
 @section('title', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' Prediction & Betting Tips (' . \Carbon\Carbon::parse(request()->route('date') ?? $fixture['fixture']['date'])->format('j M Y') . ')')
 @section('description', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' prediction and betting tips, including odds, head-to-head stats and ' . $fixture['league']['name'] . ' standings.')
+{{-- Minor-league match pages stay available but out of the index (config/predictions.php) --}}
+@section('robots', league_is_indexable($fixture['league']['id'] ?? optional($prediction)->league_id) ? 'index, follow' : 'noindex, follow')
 @section('keywords', $fixture['teams']['home']['name'] . ', ' . $fixture['teams']['away']['name'] . ', ' . $fixture['league']['name'] . ' predictions, betting tips, match analysis')
 
 @push('head')
@@ -38,6 +40,8 @@
     font-size: 22px; font-weight: 800; color: #fff; margin: 0 0 16px; line-height: 1.3;
 }
 .light-theme .fixture-show-page .match-page-title { color: #222; }
+.fixture-show-page .faq-q { font-size: 15px; font-weight: 700; margin: 0 0 4px; color: #fff; }
+.light-theme .fixture-show-page .faq-q { color: #222; }
 .fixture-show-page .team-name {
     font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px;
 }
@@ -431,6 +435,9 @@
                                 <div style="font-size:22px;font-weight:800;color:#f59e0b;">{{ $prediction->odds }}</div>
                             </div>
                         </div>
+                        @if(!empty($oddsValue))
+                            <p class="analysis-text" style="margin:20px 0 0;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05);">{{ $oddsValue }}</p>
+                        @endif
                     </div>
                 </div>
             @endif
@@ -480,6 +487,25 @@
                 </div>
             @endif
 
+            {{-- ── Match Preview ── --}}
+            @if(!empty($preview))
+                <div class="as-card mb-4">
+                    <div class="as-card-body">
+                        <div class="as-section-header" style="margin-bottom:16px;">
+                            <div class="as-section-icon" style="background:rgba(139,92,246,0.1);color:#8b5cf6;">
+                                <i class="fa fa-newspaper-o"></i>
+                            </div>
+                            <div>
+                                <h3 class="as-section-title" style="font-size:18px;">{{ $fixture['teams']['home']['name'] }} vs {{ $fixture['teams']['away']['name'] }} Preview</h3>
+                            </div>
+                        </div>
+                        @foreach($preview as $paragraph)
+                            <p class="analysis-text"{!! $loop->last ? ' style="margin-bottom:0;"' : '' !!}>{{ $paragraph }}</p>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             {{-- ── Prediction Analysis ── --}}
             @if($prediction && !empty($analysis))
                 <div class="as-card mb-4">
@@ -518,6 +544,27 @@
                 </div>
             @endif
 
+            {{-- ── Why This Tip ── --}}
+            @if($prediction && !empty($whyThisTip))
+                <div class="as-card mb-4">
+                    <div class="as-card-body">
+                        <div class="as-section-header" style="margin-bottom:16px;">
+                            <div class="as-section-icon" style="background:rgba(16,185,129,0.1);color:#10b981;">
+                                <i class="fa fa-check-square-o"></i>
+                            </div>
+                            <div>
+                                <h3 class="as-section-title" style="font-size:18px;">Why We Tip {{ $prediction->tip }}</h3>
+                            </div>
+                        </div>
+                        <ul class="factor-list">
+                            @foreach($whyThisTip as $point)
+                                <li>{{ $point }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            @endif
+
             {{-- ── Head to Head ── --}}
             @if(!empty($headToHead))
             <div class="as-card mb-4">
@@ -530,6 +577,9 @@
                             <h3 class="as-section-title" style="font-size:18px;">Head to Head (H2H)</h3>
                         </div>
                     </div>
+                    @if(!empty($h2hSummary))
+                        <p class="analysis-text">{{ $h2hSummary }}</p>
+                    @endif
                     <div class="as-table-wrap">
                         <table class="as-table">
                             <thead>
@@ -554,6 +604,71 @@
                     </div>
                 </div>
             </div>
+            @endif
+
+            {{-- ── Recent Results ── --}}
+            @if(!empty($homeRecentRows) || !empty($awayRecentRows))
+                <div class="as-card mb-4">
+                    <div class="as-card-body">
+                        <div class="as-section-header" style="margin-bottom:16px;">
+                            <div class="as-section-icon" style="background:rgba(14,165,233,0.1);color:#0ea5e9;">
+                                <i class="fa fa-calendar-check-o"></i>
+                            </div>
+                            <div>
+                                <h3 class="as-section-title" style="font-size:18px;">Recent Results</h3>
+                            </div>
+                        </div>
+                        <div class="row">
+                            @foreach([[$fixture['teams']['home']['name'], $homeRecentRows], [$fixture['teams']['away']['name'], $awayRecentRows]] as [$teamName, $rows])
+                                @if(!empty($rows))
+                                    <div class="col-md-6 mb-3 mb-md-0">
+                                        <div class="stat-label-compact mb-2">{{ $teamName }} — last {{ count($rows) }}</div>
+                                        <div class="as-table-wrap">
+                                            <table class="as-table">
+                                                <tbody>
+                                                    @foreach($rows as $row)
+                                                        <tr>
+                                                            <td class="h2h-date">{{ $row['date'] }}</td>
+                                                            <td>{{ $row['venue'] === 'H' ? 'vs' : '@' }} {{ $row['opponent'] }}</td>
+                                                            <td class="text-center font-weight-bold" style="color:#f59e0b;">{{ $row['score'] }}</td>
+                                                            <td class="text-center">
+                                                                @if($row['result'])
+                                                                    <span class="form-badge {{ $row['result'] == 'W' ? 'win' : ($row['result'] == 'D' ? 'draw' : 'loss') }}">{{ $row['result'] }}</span>
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- ── FAQ ── --}}
+            @if(!empty($faq))
+                <div class="as-card mb-4">
+                    <div class="as-card-body">
+                        <div class="as-section-header" style="margin-bottom:16px;">
+                            <div class="as-section-icon" style="background:rgba(245,158,11,0.1);color:#f59e0b;">
+                                <i class="fa fa-question-circle"></i>
+                            </div>
+                            <div>
+                                <h3 class="as-section-title" style="font-size:18px;">{{ $fixture['teams']['home']['name'] }} vs {{ $fixture['teams']['away']['name'] }} FAQ</h3>
+                            </div>
+                        </div>
+                        @foreach($faq as $item)
+                            <div class="{{ $loop->last ? '' : 'mb-3' }}">
+                                <h4 class="faq-q">{{ $item['q'] }}</h4>
+                                <p class="analysis-text" style="margin:0;">{{ $item['a'] }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
             @endif
 
             {{-- ── Discussion ── --}}
@@ -725,7 +840,7 @@
     @endif
 
     {{-- ==================== RELATED PREDICTIONS ==================== --}}
-    @if($prediction && ($categorySlug || $related->isNotEmpty()))
+    @if($prediction && ($categorySlug || $related->isNotEmpty() || !empty($exploreLinks)))
     <div class="as-card mb-4">
         <div class="as-card-body">
             <div class="as-section-header" style="margin-bottom:16px;">
@@ -747,6 +862,15 @@
                         <a class="related-item" href="{{ route('fixture.show', [$relatedPrediction->slug, $relatedPrediction->match_date->format('Y-m-d')]) }}">
                             <span class="related-teams">{{ $relatedPrediction->home_team }} vs {{ $relatedPrediction->away_team }}</span>
                             <span class="related-tip">{{ $relatedPrediction->category }} · {{ $relatedPrediction->tip }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+            @if(!empty($exploreLinks))
+                <div class="d-flex flex-wrap" style="gap:8px;margin-top:16px;">
+                    @foreach($exploreLinks as $link)
+                        <a href="{{ $link['url'] }}" class="related-category-link" style="margin:0;">
+                            <i class="fa fa-angle-right"></i> {{ $link['label'] }}
                         </a>
                     @endforeach
                 </div>

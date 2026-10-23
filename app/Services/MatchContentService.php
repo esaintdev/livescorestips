@@ -203,6 +203,385 @@ class MatchContentService
     }
 
     /**
+     * "Match preview" paragraphs: when/where, table situation, season scoring
+     * and defensive record, recent scoring trend. Each paragraph only appears
+     * when its data is available.
+     *
+     * @param  array  $ctx  as for analysis(), plus home_recent, away_recent
+     * @return string[]
+     */
+    public function preview(Prediction $prediction, array $fixture, array $ctx = []): array
+    {
+        $home = $ctx['home_team'] ?? $prediction->home_team;
+        $away = $ctx['away_team'] ?? $prediction->away_team;
+        $paragraphs = [];
+
+        // 1. When and where.
+        $league = $fixture['league']['name'] ?? $prediction->league_name;
+        $round = $fixture['league']['round'] ?? null;
+        $kickoff = $this->kickoff($fixture, $prediction);
+        $venue = $fixture['fixture']['venue']['name'] ?? null;
+        $city = $fixture['fixture']['venue']['city'] ?? null;
+
+        $when = sprintf('%s face %s', $home, $away);
+        if ($league) {
+            $when .= ' in the '.$league;
+            if ($round && ! preg_match('/^regular season/i', $round)) {
+                $when .= ' ('.$round.')';
+            }
+        }
+        if ($kickoff) {
+            $when .= ' on '.$kickoff->format('l j F Y').', kick-off '.$kickoff->format('H:i T');
+        }
+        if ($venue) {
+            $when .= ' at '.$venue.($city ? ', '.$city : '');
+        }
+        $paragraphs[] = $when.'.';
+
+        // 2. Table situation.
+        $standings = $ctx['standings'] ?? [];
+        $homeRow = $this->findStandingRow($standings, $ctx['home_team_id'] ?? null);
+        $awayRow = $this->findStandingRow($standings, $ctx['away_team_id'] ?? null);
+        if ($homeRow && $awayRow && isset($homeRow['points'], $awayRow['points'])) {
+            $gap = (int) $homeRow['points'] - (int) $awayRow['points'];
+            $played = $homeRow['all']['played'] ?? null;
+            $text = sprintf(
+                '%s are %s with %d points%s, while %s are %s with %d.',
+                $home,
+                $this->ordinal($homeRow['rank'] ?? null),
+                $homeRow['points'],
+                $played ? ' from '.$played.' games' : '',
+                $away,
+                $this->ordinal($awayRow['rank'] ?? null),
+                $awayRow['points']
+            );
+            $text .= $gap === 0
+                ? ' The two sides are level on points.'
+                : sprintf(' That leaves %s %d point%s ahead.', $gap > 0 ? $home : $away, abs($gap), abs($gap) === 1 ? '' : 's');
+            $paragraphs[] = $text;
+        }
+
+        // 3. Season scoring at home / on the road.
+        $hs = $ctx['home_stats'] ?? null;
+        $as = $ctx['away_stats'] ?? null;
+        $hScored = is_array($hs) ? ($hs['goals']['for']['average']['home'] ?? null) : null;
+        $hConceded = is_array($hs) ? ($hs['goals']['against']['average']['home'] ?? null) : null;
+        $aScored = is_array($as) ? ($as['goals']['for']['average']['away'] ?? null) : null;
+        $aConceded = is_array($as) ? ($as['goals']['against']['average']['away'] ?? null) : null;
+        if ($hScored !== null && $hConceded !== null && $aScored !== null && $aConceded !== null) {
+            $text = sprintf(
+                'At home this season %s average %s goals scored and %s conceded per game; on the road %s average %s scored and %s conceded.',
+                $home, $hScored, $hConceded, $away, $aScored, $aConceded
+            );
+            $hClean = $hs['clean_sheet']['total'] ?? null;
+            $aClean = $as['clean_sheet']['total'] ?? null;
+            $hBlank = $hs['failed_to_score']['total'] ?? null;
+            $aBlank = $as['failed_to_score']['total'] ?? null;
+            if ($hClean !== null && $aClean !== null && $hBlank !== null && $aBlank !== null) {
+                $text .= sprintf(
+                    ' %s have kept %d clean sheet%s and failed to score %d time%s; %s have %d clean sheet%s and %d blank%s.',
+                    $home, $hClean, $hClean == 1 ? '' : 's', $hBlank, $hBlank == 1 ? '' : 's',
+                    $away, $aClean, $aClean == 1 ? '' : 's', $aBlank, $aBlank == 1 ? '' : 's'
+                );
+            }
+            $paragraphs[] = $text;
+        }
+
+        // 4. Recent scoring trend (last results with real scores).
+        $trend = [];
+        foreach ([[$home, $ctx['home_recent'] ?? [], $ctx['home_team_id'] ?? null], [$away, $ctx['away_recent'] ?? [], $ctx['away_team_id'] ?? null]] as [$name, $recent, $teamId]) {
+            $t = $this->recentTotals($recent, $teamId);
+            if ($t['played'] >= 3) {
+                $trend[] = sprintf(
+                    '%s have scored %d and conceded %d in their last %d matches, with %d going over 2.5 goals and both teams scoring in %d',
+                    $name, $t['for'], $t['against'], $t['played'], $t['over25'], $t['btts']
+                );
+            }
+        }
+        if (! empty($trend)) {
+            $paragraphs[] = implode('. ', $trend).'.';
+        }
+
+        return $paragraphs;
+    }
+
+    /**
+     * Rows for a team's "recent results" table, most recent first.
+     *
+     * @return array<int, array{date: ?string, opponent: ?string, venue: string, score: string, result: ?string, competition: ?string}>
+     */
+    public function recentRows(array $recent, $teamId): array
+    {
+        $rows = [];
+        foreach ($recent as $match) {
+            $hg = $match['goals']['home'] ?? null;
+            $ag = $match['goals']['away'] ?? null;
+            $isHome = ($match['teams']['home']['id'] ?? null) == $teamId;
+            $for = $isHome ? $hg : $ag;
+            $against = $isHome ? $ag : $hg;
+            $result = null;
+            if ($for !== null && $against !== null) {
+                $result = $for > $against ? 'W' : ($for < $against ? 'L' : 'D');
+            }
+
+            $rows[] = [
+                'date' => ! empty($match['fixture']['date']) ? Carbon::parse($match['fixture']['date'])->format('M d, Y') : null,
+                'opponent' => $isHome ? ($match['teams']['away']['name'] ?? null) : ($match['teams']['home']['name'] ?? null),
+                'venue' => $isHome ? 'H' : 'A',
+                'score' => ($hg ?? '-').'-'.($ag ?? '-'),
+                'result' => $result,
+                'competition' => $match['league']['name'] ?? null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * One-sentence head-to-head record, attributing wins by team id (the two
+     * sides swap home and away between meetings).
+     */
+    public function h2hSummary(array $h2h, $homeTeamId, $awayTeamId, string $home, string $away): ?string
+    {
+        $homeWins = 0;
+        $awayWins = 0;
+        $draws = 0;
+        $count = 0;
+        $latest = null;
+
+        foreach ($h2h as $match) {
+            $hg = $match['goals']['home'] ?? null;
+            $ag = $match['goals']['away'] ?? null;
+            if ($hg === null || $ag === null) {
+                continue;
+            }
+            $count++;
+            $latest ??= $match;
+
+            if ($hg == $ag) {
+                $draws++;
+
+                continue;
+            }
+            $winnerId = $hg > $ag ? ($match['teams']['home']['id'] ?? null) : ($match['teams']['away']['id'] ?? null);
+            if ($winnerId == $homeTeamId) {
+                $homeWins++;
+            } elseif ($winnerId == $awayTeamId) {
+                $awayWins++;
+            }
+        }
+
+        if ($count === 0) {
+            return null;
+        }
+
+        $text = sprintf(
+            'In the last %d meeting%s, %s have won %d, %s have won %d and %d ended level.',
+            $count, $count === 1 ? '' : 's', $home, $homeWins, $away, $awayWins, $draws
+        );
+
+        if ($latest && ! empty($latest['fixture']['date'])) {
+            $text .= sprintf(
+                ' The most recent, on %s, finished %s %s-%s %s.',
+                Carbon::parse($latest['fixture']['date'])->format('j F Y'),
+                $latest['teams']['home']['name'] ?? '',
+                $latest['goals']['home'],
+                $latest['goals']['away'],
+                $latest['teams']['away']['name'] ?? ''
+            );
+        }
+
+        return $text;
+    }
+
+    /**
+     * Compares the bookmaker's implied probability with ours.
+     */
+    public function oddsValue(Prediction $prediction): ?string
+    {
+        $odds = (float) $prediction->odds;
+        $probability = $prediction->probability !== null ? (float) $prediction->probability : null;
+
+        if ($odds <= 1 || $probability === null || $probability <= 0) {
+            return null;
+        }
+
+        $implied = round(100 / $odds, 1);
+        $diff = round($probability - $implied, 1);
+        $oddsText = rtrim(rtrim(number_format($odds, 2, '.', ''), '0'), '.');
+        $probText = rtrim(rtrim((string) $probability, '0'), '.');
+
+        if ($diff >= 3) {
+            return "Odds of {$oddsText} imply a {$implied}% chance, below our {$probText}% estimate: the price looks generous by about {$diff} percentage points.";
+        }
+        if ($diff <= -3) {
+            return "Odds of {$oddsText} imply a {$implied}% chance, a little above our {$probText}% estimate, so bookmakers rate this outcome slightly more likely than our model does.";
+        }
+
+        return "Odds of {$oddsText} imply a {$implied}% chance, in line with our {$probText}% estimate.";
+    }
+
+    /**
+     * Market-specific evidence for the tip, from season stats, recent results
+     * and head-to-head. Returns only the points the data supports.
+     *
+     * @return string[]
+     */
+    public function whyThisTip(Prediction $prediction, array $ctx = []): array
+    {
+        $home = $ctx['home_team'] ?? $prediction->home_team;
+        $away = $ctx['away_team'] ?? $prediction->away_team;
+        $hs = is_array($ctx['home_stats'] ?? null) ? $ctx['home_stats'] : null;
+        $as = is_array($ctx['away_stats'] ?? null) ? $ctx['away_stats'] : null;
+        $hRecent = $this->recentTotals($ctx['home_recent'] ?? [], $ctx['home_team_id'] ?? null);
+        $aRecent = $this->recentTotals($ctx['away_recent'] ?? [], $ctx['away_team_id'] ?? null);
+        $h2h = $this->h2hStats($ctx['h2h'] ?? []);
+        $type = $this->classify((string) $prediction->tip);
+        $points = [];
+
+        switch ($type['type']) {
+            case 'over':
+            case 'under':
+                $line = (float) $type['line'];
+                if ($hs && $as) {
+                    $hAvg = (float) ($hs['goals']['for']['average']['total'] ?? 0) + (float) ($hs['goals']['against']['average']['total'] ?? 0);
+                    $aAvg = (float) ($as['goals']['for']['average']['total'] ?? 0) + (float) ($as['goals']['against']['average']['total'] ?? 0);
+                    if ($hAvg > 0 && $aAvg > 0) {
+                        $points[] = sprintf('%s matches average %.1f total goals this season and %s matches %.1f.', $home, $hAvg, $away, $aAvg);
+                    }
+                }
+                foreach ([[$home, $ctx['home_recent'] ?? [], $hRecent], [$away, $ctx['away_recent'] ?? [], $aRecent]] as [$name, $recent, $t]) {
+                    if ($t['played'] >= 3) {
+                        $over = $this->countOver($recent, $line);
+                        $points[] = sprintf('%d of %s\'s last %d matches went over %s goals.', $over, $name, $t['played'], $type['line']);
+                    }
+                }
+                if ($h2h['count'] > 0) {
+                    $points[] = sprintf('The last %d head-to-head meetings averaged %.1f goals.', $h2h['count'], $h2h['goals'] / $h2h['count']);
+                }
+                break;
+
+            case 'btts':
+            case 'ng':
+                if ($hs && $as && isset($hs['failed_to_score']['total'], $as['failed_to_score']['total'])) {
+                    $points[] = sprintf(
+                        '%s have failed to score in %d of %d games and %s in %d of %d.',
+                        $home, $hs['failed_to_score']['total'], $hs['fixtures']['played']['total'] ?? 0,
+                        $away, $as['failed_to_score']['total'], $as['fixtures']['played']['total'] ?? 0
+                    );
+                }
+                if ($hs && $as && isset($hs['clean_sheet']['total'], $as['clean_sheet']['total'])) {
+                    $points[] = sprintf('Clean sheets this season: %s %d, %s %d.', $home, $hs['clean_sheet']['total'], $away, $as['clean_sheet']['total']);
+                }
+                foreach ([[$home, $hRecent], [$away, $aRecent]] as [$name, $t]) {
+                    if ($t['played'] >= 3) {
+                        $points[] = sprintf('Both teams scored in %d of %s\'s last %d matches.', $t['btts'], $name, $t['played']);
+                    }
+                }
+                if ($h2h['count'] > 0) {
+                    $points[] = sprintf('Both sides scored in %d of the last %d head-to-head meetings.', $h2h['both_scored'], $h2h['count']);
+                }
+                break;
+
+            case 'home':
+            case 'dc_home':
+            case 'away':
+            case 'dc_away':
+            case 'dc_nodraw':
+            case 'draw':
+                if ($hs && isset($hs['fixtures']['wins']['home'], $hs['fixtures']['played']['home'])) {
+                    $points[] = sprintf(
+                        '%s at home: %d wins, %d draws and %d defeats from %d games.',
+                        $home, $hs['fixtures']['wins']['home'], $hs['fixtures']['draws']['home'] ?? 0,
+                        $hs['fixtures']['loses']['home'] ?? 0, $hs['fixtures']['played']['home']
+                    );
+                }
+                if ($as && isset($as['fixtures']['wins']['away'], $as['fixtures']['played']['away'])) {
+                    $points[] = sprintf(
+                        '%s away from home: %d wins, %d draws and %d defeats from %d games.',
+                        $away, $as['fixtures']['wins']['away'], $as['fixtures']['draws']['away'] ?? 0,
+                        $as['fixtures']['loses']['away'] ?? 0, $as['fixtures']['played']['away']
+                    );
+                }
+                foreach ([[$home, $hRecent], [$away, $aRecent]] as [$name, $t]) {
+                    if ($t['played'] >= 3) {
+                        $points[] = sprintf('%s have taken %d points from their last %d matches.', $name, $t['points'], $t['played']);
+                    }
+                }
+                break;
+
+            case 'cs':
+                if ($hs && $as) {
+                    $hFor = $hs['goals']['for']['average']['home'] ?? null;
+                    $aAgainst = $as['goals']['against']['average']['away'] ?? null;
+                    $aFor = $as['goals']['for']['average']['away'] ?? null;
+                    $hAgainst = $hs['goals']['against']['average']['home'] ?? null;
+                    if ($hFor !== null && $aAgainst !== null && $aFor !== null && $hAgainst !== null) {
+                        $points[] = sprintf('%s score %s per home game and %s concede %s per away game.', $home, $hFor, $away, $aAgainst);
+                        $points[] = sprintf('%s score %s per away game and %s concede %s at home.', $away, $aFor, $home, $hAgainst);
+                    }
+                }
+                if ($h2h['count'] > 0) {
+                    $points[] = sprintf('The last %d head-to-head meetings averaged %.1f goals.', $h2h['count'], $h2h['goals'] / $h2h['count']);
+                }
+                break;
+        }
+
+        return array_slice($points, 0, 5);
+    }
+
+    /**
+     * Visible FAQ answering the questions people search for this match.
+     *
+     * @return array<int, array{q: string, a: string}>
+     */
+    public function faq(Prediction $prediction, array $fixture, array $ctx = [], ?string $result = null): array
+    {
+        $home = $ctx['home_team'] ?? $prediction->home_team;
+        $away = $ctx['away_team'] ?? $prediction->away_team;
+        $match = "{$home} vs {$away}";
+        $faq = [];
+
+        $answer = sprintf('Our tip is %s (%s)', $prediction->tip, $prediction->category);
+        if ($prediction->probability !== null) {
+            $answer .= ', with a probability of '.rtrim(rtrim((string) $prediction->probability, '0'), '.').'%';
+        }
+        if ($prediction->odds) {
+            $answer .= ' at odds of '.rtrim(rtrim((string) $prediction->odds, '0'), '.');
+        }
+        $faq[] = ['q' => "What is the {$match} prediction?", 'a' => $answer.'.'];
+
+        $kickoff = $this->kickoff($fixture, $prediction);
+        if ($kickoff) {
+            $a = $kickoff->format('l j F Y').', kick-off '.$kickoff->format('H:i T');
+            $league = $fixture['league']['name'] ?? $prediction->league_name;
+            if ($league) {
+                $a .= ', in the '.$league;
+            }
+            if (! empty($fixture['fixture']['venue']['name'])) {
+                $a .= ', at '.$fixture['fixture']['venue']['name'];
+            }
+            $faq[] = ['q' => "When is {$match}?", 'a' => $a.'.'];
+        }
+
+        $h2h = $this->h2hSummary($ctx['h2h'] ?? [], $ctx['home_team_id'] ?? null, $ctx['away_team_id'] ?? null, $home, $away);
+        if ($h2h) {
+            $faq[] = ['q' => "What is the head-to-head record between {$home} and {$away}?", 'a' => $h2h];
+        }
+
+        $hg = $fixture['goals']['home'] ?? $prediction->home_score;
+        $ag = $fixture['goals']['away'] ?? $prediction->away_score;
+        if (in_array($result, ['won', 'lost'], true) && $hg !== null && $ag !== null) {
+            $faq[] = [
+                'q' => "What was the final score of {$match}?",
+                'a' => sprintf('%s %s-%s %s. Our %s tip %s.', $home, $hg, $ag, $away, $prediction->tip, $result),
+            ];
+        }
+
+        return $faq;
+    }
+
+    /**
      * Related predictions: same market or league, excluding this record and
      * any other record for the same provider fixture.
      */
@@ -329,6 +708,63 @@ class MatchContentService
         }
 
         return ['count' => $count, 'goals' => $goals, 'both_scored' => $bothScored];
+    }
+
+    /**
+     * Goals and patterns across a team's recent results.
+     */
+    private function recentTotals(array $recent, $teamId): array
+    {
+        $t = ['played' => 0, 'for' => 0, 'against' => 0, 'over25' => 0, 'btts' => 0, 'points' => 0];
+
+        foreach ($recent as $match) {
+            $hg = $match['goals']['home'] ?? null;
+            $ag = $match['goals']['away'] ?? null;
+            if ($hg === null || $ag === null) {
+                continue;
+            }
+            $isHome = ($match['teams']['home']['id'] ?? null) == $teamId;
+            $for = (int) ($isHome ? $hg : $ag);
+            $against = (int) ($isHome ? $ag : $hg);
+
+            $t['played']++;
+            $t['for'] += $for;
+            $t['against'] += $against;
+            $t['over25'] += ($for + $against) > 2.5 ? 1 : 0;
+            $t['btts'] += ($for > 0 && $against > 0) ? 1 : 0;
+            $t['points'] += $for > $against ? 3 : ($for === $against ? 1 : 0);
+        }
+
+        return $t;
+    }
+
+    private function countOver(array $recent, float $line): int
+    {
+        return count(array_filter($recent, function ($match) use ($line) {
+            $hg = $match['goals']['home'] ?? null;
+            $ag = $match['goals']['away'] ?? null;
+
+            return $hg !== null && $ag !== null && ($hg + $ag) > $line;
+        }));
+    }
+
+    private function kickoff(array $fixture, Prediction $prediction): ?Carbon
+    {
+        try {
+            if (! empty($fixture['fixture']['date'])) {
+                // Same clock as the match header (provider time, normally UTC)
+                return Carbon::parse($fixture['fixture']['date']);
+            }
+            if ($prediction->match_date) {
+                $date = Carbon::parse($prediction->match_date)->format('Y-m-d');
+
+                return Carbon::parse($date.' '.($prediction->match_time ?: '00:00'));
+            }
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return null;
     }
 
     private function ordinal($n): string
