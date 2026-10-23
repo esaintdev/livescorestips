@@ -500,7 +500,7 @@
                             </div>
                         </div>
                         @foreach($preview as $paragraph)
-                            <p class="analysis-text"{!! $loop->last ? ' style="margin-bottom:0;"' : '' !!}>{{ $paragraph }}</p>
+                            <p class="analysis-text" style="margin-bottom:{{ $loop->last ? '0' : '12px' }};">{{ $paragraph }}</p>
                         @endforeach
                     </div>
                 </div>
