@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' Prediction & Betting Tips (' . \Carbon\Carbon::parse($fixture['fixture']['date'])->format('j M Y') . ')')
+@section('title', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' Prediction & Betting Tips (' . \Carbon\Carbon::parse(request()->route('date') ?? $fixture['fixture']['date'])->format('j M Y') . ')')
 @section('description', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' prediction and betting tips, including odds, head-to-head stats and ' . $fixture['league']['name'] . ' standings.')
 @section('keywords', $fixture['teams']['home']['name'] . ', ' . $fixture['teams']['away']['name'] . ', ' . $fixture['league']['name'] . ' predictions, betting tips, match analysis')
 
