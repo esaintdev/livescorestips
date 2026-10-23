@@ -231,7 +231,7 @@ class MatchContentService
             }
         }
         if ($kickoff) {
-            $when .= ' on '.$kickoff->format('l j F Y').', kick-off '.$kickoff->format('H:i T');
+            $when .= ' on '.$kickoff->format('l j F Y').', kick-off '.$this->clock($kickoff);
         }
         if ($venue) {
             $when .= ' at '.$venue.($city ? ', '.$city : '');
@@ -453,7 +453,7 @@ class MatchContentService
                 foreach ([[$home, $ctx['home_recent'] ?? [], $hRecent], [$away, $ctx['away_recent'] ?? [], $aRecent]] as [$name, $recent, $t]) {
                     if ($t['played'] >= 3) {
                         $over = $this->countOver($recent, $line);
-                        $points[] = sprintf('%d of %s\'s last %d matches went over %s goals.', $over, $name, $t['played'], $type['line']);
+                        $points[] = sprintf('%d of %s last %d matches went over %s goals.', $over, $this->possessive($name), $t['played'], $type['line']);
                     }
                 }
                 if ($h2h['count'] > 0) {
@@ -475,7 +475,7 @@ class MatchContentService
                 }
                 foreach ([[$home, $hRecent], [$away, $aRecent]] as [$name, $t]) {
                     if ($t['played'] >= 3) {
-                        $points[] = sprintf('Both teams scored in %d of %s\'s last %d matches.', $t['btts'], $name, $t['played']);
+                        $points[] = sprintf('Both teams scored in %d of %s last %d matches.', $t['btts'], $this->possessive($name), $t['played']);
                     }
                 }
                 if ($h2h['count'] > 0) {
@@ -553,7 +553,7 @@ class MatchContentService
 
         $kickoff = $this->kickoff($fixture, $prediction);
         if ($kickoff) {
-            $a = $kickoff->format('l j F Y').', kick-off '.$kickoff->format('H:i T');
+            $a = $kickoff->format('l j F Y').', kick-off '.$this->clock($kickoff);
             $league = $fixture['league']['name'] ?? $prediction->league_name;
             if ($league) {
                 $a .= ', in the '.$league;
@@ -746,6 +746,16 @@ class MatchContentService
 
             return $hg !== null && $ag !== null && ($hg + $ag) > $line;
         }));
+    }
+
+    private function clock(Carbon $time): string
+    {
+        return $time->format('H:i').' '.($time->getOffset() === 0 ? 'UTC' : $time->format('T'));
+    }
+
+    private function possessive(string $name): string
+    {
+        return $name.(str_ends_with(mb_strtolower($name), 's') ? "'" : "'s");
     }
 
     private function kickoff(array $fixture, Prediction $prediction): ?Carbon

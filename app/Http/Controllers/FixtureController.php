@@ -158,6 +158,16 @@ class FixtureController extends Controller
             'awayStats' => $awayStats,
         ] = $this->pageData->get($fixture, $prediction);
 
+        // Once played, this match shows up in its own H2H and recent results;
+        // leave it out so those sections describe the build-up to it.
+        $currentId = $fixture['fixture']['id'] ?? ($prediction->fixture_id ?? null);
+        if ($currentId) {
+            $notThisMatch = fn ($m) => ($m['fixture']['id'] ?? null) != $currentId;
+            $headToHead = array_values(array_filter($headToHead, $notThisMatch));
+            $homeRecent = array_values(array_filter($homeRecent, $notThisMatch));
+            $awayRecent = array_values(array_filter($awayRecent, $notThisMatch));
+        }
+
         // Settlement result (shared service — never duplicated in the view).
         $predictionResult = null;
         $summary = null;
