@@ -6,6 +6,7 @@ use App\Models\Prediction;
 use App\Services\ApiFootballService;
 use App\Services\MatchPageDataService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 
 class WarmMatchPages extends Command
 {
@@ -39,7 +40,7 @@ class WarmMatchPages extends Command
         if (! $this->outOfTime()) {
             $older = array_values(array_filter(
                 $this->fixtureIds(now()->subDays(30)->startOfDay(), now()->subDays(2)->endOfDay(), 'desc', true),
-                fn ($id) => MatchPageDataService::builtAt($id) === null
+                fn ($id) => ! Cache::has(MatchPageDataService::cacheKey($id))
             ));
             $this->info(count($older).' older sitemap fixtures without a snapshot...');
             [$ok, $failed] = $this->warm($older, $apiService, $pageData, false, $pause);
