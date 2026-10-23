@@ -316,6 +316,9 @@ class MatchContentService
         foreach ($recent as $match) {
             $hg = $match['goals']['home'] ?? null;
             $ag = $match['goals']['away'] ?? null;
+            if ($hg === null || $ag === null) {
+                continue; // not played (postponed/upcoming)
+            }
             $isHome = ($match['teams']['home']['id'] ?? null) == $teamId;
             $for = $isHome ? $hg : $ag;
             $against = $isHome ? $ag : $hg;
@@ -328,7 +331,7 @@ class MatchContentService
                 'date' => ! empty($match['fixture']['date']) ? Carbon::parse($match['fixture']['date'])->format('M d, Y') : null,
                 'opponent' => $isHome ? ($match['teams']['away']['name'] ?? null) : ($match['teams']['home']['name'] ?? null),
                 'venue' => $isHome ? 'H' : 'A',
-                'score' => ($hg ?? '-').'-'.($ag ?? '-'),
+                'score' => $hg.'-'.$ag,
                 'result' => $result,
                 'competition' => $match['league']['name'] ?? null,
             ];

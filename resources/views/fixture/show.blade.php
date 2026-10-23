@@ -621,14 +621,14 @@
                         <div class="row">
                             @foreach([[$fixture['teams']['home']['name'], $homeRecentRows], [$fixture['teams']['away']['name'], $awayRecentRows]] as [$teamName, $rows])
                                 @if(!empty($rows))
-                                    <div class="col-md-6 mb-3 mb-md-0">
+                                    <div class="col-12 {{ $loop->last ? '' : 'mb-3' }}">
                                         <div class="stat-label-compact mb-2">{{ $teamName }} — last {{ count($rows) }}</div>
                                         <div class="as-table-wrap">
                                             <table class="as-table">
                                                 <tbody>
                                                     @foreach($rows as $row)
                                                         <tr>
-                                                            <td class="h2h-date">{{ $row['date'] }}</td>
+                                                            <td class="h2h-date" style="width:22%;white-space:nowrap;">{{ $row['date'] }}</td>
                                                             <td>{{ $row['venue'] === 'H' ? 'vs' : '@' }} {{ $row['opponent'] }}</td>
                                                             <td class="text-center font-weight-bold" style="color:#f59e0b;">{{ $row['score'] }}</td>
                                                             <td class="text-center">
