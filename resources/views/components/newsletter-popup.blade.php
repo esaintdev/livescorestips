@@ -387,11 +387,42 @@
         const hasSubscribed = localStorage.getItem('newsletterSubscribed');
         const hasDismissed = localStorage.getItem('newsletterDismissed');
 
-        // Show modal after 2 seconds if user hasn't subscribed or dismissed
+        // Only show once the visitor is engaged (scrolled half the page or
+        // spent 45s on it) and never on top of the cookie banner: an
+        // immediate full-screen popup is an intrusive interstitial for Google.
         if (!hasSubscribed && !hasDismissed) {
-            setTimeout(() => {
+            let shown = false;
+            let engaged = false;
+
+            function cookieBannerVisible() {
+                const banner = document.getElementById('cookieConsent');
+                return banner && getComputedStyle(banner).display !== 'none';
+            }
+
+            function tryShow() {
+                if (shown || !engaged) return;
+                if (cookieBannerVisible()) {
+                    setTimeout(tryShow, 3000);
+                    return;
+                }
+                shown = true;
+                window.removeEventListener('scroll', onScroll);
                 modal.style.display = 'flex';
-            }, 2000);
+            }
+
+            function onScroll() {
+                const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+                if (scrollable > 0 && window.scrollY / scrollable >= 0.5) {
+                    engaged = true;
+                    tryShow();
+                }
+            }
+
+            window.addEventListener('scroll', onScroll, { passive: true });
+            setTimeout(() => {
+                engaged = true;
+                tryShow();
+            }, 45000);
         }
 
         // Close modal function
