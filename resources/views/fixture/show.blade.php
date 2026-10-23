@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' - ' . config('app.name'))
+@section('title', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' Prediction & Betting Tips (' . \Carbon\Carbon::parse($fixture['fixture']['date'])->format('j M Y') . ')')
 @section('description', $fixture['teams']['home']['name'] . ' vs ' . $fixture['teams']['away']['name'] . ' prediction and betting tips, including odds, head-to-head stats and ' . $fixture['league']['name'] . ' standings.')
 @section('keywords', $fixture['teams']['home']['name'] . ', ' . $fixture['teams']['away']['name'] . ', ' . $fixture['league']['name'] . ' predictions, betting tips, match analysis')
 
@@ -34,6 +34,10 @@
     font-size: 12px;
     color: rgba(255,255,255,0.35);
 }
+.fixture-show-page .match-page-title {
+    font-size: 22px; font-weight: 800; color: #fff; margin: 0 0 16px; line-height: 1.3;
+}
+.light-theme .fixture-show-page .match-page-title { color: #222; }
 .fixture-show-page .team-name {
     font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px;
 }
@@ -307,6 +311,8 @@
 </style>
 
 <div class="fixture-show-page" style="max-width:1100px;margin:0 auto;">
+
+    <h1 class="match-page-title">{{ $fixture['teams']['home']['name'] }} vs {{ $fixture['teams']['away']['name'] }} Prediction &amp; Betting Tips</h1>
 
     {{-- ==================== MATCH HEADER ==================== --}}
     <div class="as-card match-header mb-4">

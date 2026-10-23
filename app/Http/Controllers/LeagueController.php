@@ -23,6 +23,12 @@ class LeagueController extends Controller
             abort(404);
         }
 
+        // One canonical URL per league: any other slug 301s to it
+        $canonicalSlug = $league['slug'] ?? \Illuminate\Support\Str::slug($league['name']);
+        if ($slug !== $canonicalSlug) {
+            return redirect()->route('league.show', ['id' => $league['id'], 'slug' => $canonicalSlug], 301);
+        }
+
         $season = now()->month >= 7 ? now()->year : now()->year - 1;
 
         $standings = $this->apiFootballService->fetchLeagueStandings($id, $season);

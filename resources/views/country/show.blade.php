@@ -2,7 +2,7 @@
 
 @section('title', $name . ' Football Predictions – ' . config('app.name'))
 @section('description', 'View upcoming football predictions for ' . $name . ' leagues. Expert tips, odds and analysis.')
-@section('robots', (isset($predictions) && $predictions->isEmpty()) ? 'noindex, follow' : 'index, follow')
+@section('robots', ($hasDateFilter || $predictions->isEmpty()) ? 'noindex, follow' : 'index, follow')
 
 @section('page-header')
     <h1 class="bm-page-title">

@@ -30,7 +30,10 @@ if (! function_exists('meta_description')) {
      */
     function meta_description(?string $text, int $max = 160): string
     {
-        $text = trim(preg_replace('/\s+/', ' ', strip_tags((string) $text)));
+        // Decode entities first: @section('description', ...) already escapes,
+        // and the layout escapes again, which would show "&#039;" in snippets.
+        $text = html_entity_decode(strip_tags((string) $text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = trim(preg_replace('/\s+/', ' ', $text));
 
         if ($text === '' || mb_strlen($text) <= $max) {
             return $text;

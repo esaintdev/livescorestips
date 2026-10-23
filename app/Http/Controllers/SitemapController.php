@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\Prediction;
 use App\Models\SeoPage;
+use App\Services\ApiFootballService;
 use Carbon\Carbon;
 
 class SitemapController extends Controller
@@ -70,6 +71,20 @@ class SitemapController extends Controller
 
             $urls[] = [
                 'loc' => route('category.show', $slug),
+                'lastmod' => $lastmod ? Carbon::parse($lastmod)->toAtomString() : null,
+                'changefreq' => 'daily',
+                'priority' => '0.8',
+            ];
+        }
+
+        // Skip admin-added placeholder leagues ("League #123") which have no real name
+        $leagues = collect(app(ApiFootballService::class)->getPopularLeagues())
+            ->reject(fn ($league) => str_starts_with($league['name'], 'League #'));
+        foreach ($leagues as $league) {
+            $lastmod = Prediction::where('league_id', $league['id'])->max('updated_at');
+
+            $urls[] = [
+                'loc' => route('league.show', ['id' => $league['id'], 'slug' => $league['slug']]),
                 'lastmod' => $lastmod ? Carbon::parse($lastmod)->toAtomString() : null,
                 'changefreq' => 'daily',
                 'priority' => '0.8',
