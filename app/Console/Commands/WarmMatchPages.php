@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Cache;
 class WarmMatchPages extends Command
 {
     protected $signature = 'prediction:warm-pages
-                            {--backfill=150 : Max finished matches (last 30 days) without a snapshot to build per run}
+                            {--backfill=150 : Max finished sitemap matches (last 30 days) without a snapshot to build per run}
                             {--pause=250 : Milliseconds to wait between fixtures (API per-minute limit)}';
 
     protected $description = 'Pre-build match page data so match pages load from cache';
@@ -26,9 +26,10 @@ class WarmMatchPages extends Command
         [$ok, $failed] = $this->warm($recent, $apiService, $pageData, true, $pause);
         $this->line("  done: $ok, failed: $failed");
 
-        // 2. Older matches still in the sitemap: build once (finished snapshots last 30 days)
+        // 2. Older matches still in the sitemap (indexable leagues): build once
+        // (finished snapshots last 30 days)
         $older = array_values(array_filter(
-            $this->fixtureIds(now()->subDays(30)->startOfDay(), now()->subDays(2)->endOfDay()),
+            $this->fixtureIds(now()->subDays(30)->startOfDay(), now()->subDays(2)->endOfDay(), true),
             fn ($id) => ! Cache::has(MatchPageDataService::cacheKey($id))
         ));
         $older = array_slice($older, 0, (int) $this->option('backfill'));
@@ -42,12 +43,14 @@ class WarmMatchPages extends Command
     /**
      * Distinct provider fixture ids with a match date in the window, newest first.
      */
-    protected function fixtureIds($from, $to): array
+    protected function fixtureIds($from, $to, bool $indexableOnly = false): array
     {
         return Prediction::whereNotNull('slug')
             ->whereNotNull('fixture_id')
             ->whereBetween('match_date', [$from, $to])
             ->orderByDesc('match_date')
+            ->get(['fixture_id', 'league_id'])
+            ->when($indexableOnly, fn ($rows) => $rows->filter(fn ($row) => league_is_indexable($row->league_id)))
             ->pluck('fixture_id')
             ->unique()
             ->values()
